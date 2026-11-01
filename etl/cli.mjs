@@ -354,6 +354,7 @@ async function loadVerifiedBenchmarkSeries(database) {
 
 async function buildSnapshot(funds, sourceStatus, disclosures) {
   await rm(snapshotDir, { recursive: true, force: true });
+  const dataRoot = join(snapshotDir, 'data');
   const salt = randomBytes(16);
   // Snapshot files are immutable and cacheable. Use the fresh KDF salt as a
   // per-snapshot URL namespace so a browser cannot pair a new manifest with
