@@ -1,0 +1,88 @@
+name: W0 hosting feasibility (temporary)
+
+on:
+  push:
+    branches:
+      - codex/w0-hosting-feasibility
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sources-and-sqlite:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Probe AMFI and MFapi from GitHub runner
+        id: source_probe
+        continue-on-error: true
+        run: node .github/w0/feasibility.mjs sources
+      - name: Verify better-sqlite3 on Node 22
+        id: sqlite_probe
+        run: |
+          mkdir -p "$RUNNER_TEMP/sqlite-probe"
+          cd "$RUNNER_TEMP/sqlite-probe"
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund better-sqlite3
+          node -e 'const Database = require("better-sqlite3"); const db = new Database(":memory:"); db.exec("create table probe (value integer); insert into probe values (42)"); const value = db.prepare("select value from probe").get().value; if (value !== 42) process.exit(1); console.log(`better-sqlite3 ${require("better-sqlite3/package.json").version}: SQLite round trip OK (${value})`); db.close();'
+          echo "- better-sqlite3: installed and passed an in-memory SQLite round trip on Node $(node --version)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Summarize source-probe outcome
+        if: always()
+        run: |
+          if [ "${{ steps.source_probe.outcome }}" != "success" ]; then
+            echo "- AMFI/MFapi source probe: one or more endpoints were blocked or unavailable; see the response table above." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if [ "${{ steps.sqlite_probe.outcome }}" != "success" ]; then exit 1; fi
+
+  release-roundtrip:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Upload and download a 50 MiB temporary release asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: node .github/w0/feasibility.mjs release
+
+  pages-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      actions: read
+    steps:
+      - name: Generate temporary W0 page
+        run: |
+          mkdir -p "$RUNNER_TEMP/w0-pages"
+          cat > "$RUNNER_TEMP/w0-pages/index.html" <<'EOF'
+          <!doctype html>
+          <html lang="en">
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1">
+          <title>FundScope W0 hosting check</title>
+          <body style="font:16px system-ui;max-width:48rem;margin:4rem auto;padding:0 1rem;color:#182230">
+            <h1>FundScope W0 hosting check</h1>
+            <p>This temporary page verifies GitHub Pages deployment from a public repository.</p>
+            <p>It contains no FundScope data.</p>
+          </body>
+          </html>
+          EOF
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ runner.temp }}/w0-pages
+      - name: Deploy temporary page
+        id: deploy
+        uses: actions/deploy-pages@v5.0.1
