@@ -354,10 +354,13 @@ async function loadVerifiedBenchmarkSeries(database) {
 
 async function buildSnapshot(funds, sourceStatus, disclosures) {
   await rm(snapshotDir, { recursive: true, force: true });
-  const dataRoot = join(snapshotDir, 'data');
-  const navDir = join(dataRoot, 'nav');
-  await mkdir(navDir, { recursive: true });
   const salt = randomBytes(16);
+  // Snapshot files are immutable and cacheable. Use the fresh KDF salt as a
+  // per-snapshot URL namespace so a browser cannot pair a new manifest with
+  // cached ciphertext from the previous deployment.
+  const snapshotId = Array.from(salt, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  const snapshotPrefix = `data/${snapshotId}/`;
+  await mkdir(join(snapshotDir, snapshotPrefix, 'nav'), { recursive: true });
   const iterations = 600_000;
   const key = await deriveSnapshotKey(env.DATA_PASSPHRASE, salt, iterations);
   const refs = {};
@@ -369,16 +372,16 @@ async function buildSnapshot(funds, sourceStatus, disclosures) {
     await writeFile(localPath, encrypted);
     return { path, sha256: await sha256Hex(encrypted), encryptedBytes: encrypted.byteLength, compressedBytes: compressed.byteLength, plaintextBytes: Buffer.byteLength(text) };
   }
-  const canaryPath = 'data/canary.enc';
+  const canaryPath = `${snapshotPrefix}canary.enc`;
   const canaryEncrypted = await encryptSnapshotFile(key, canaryPath, encodeUtf8('FundScope snapshot canary:v1'));
   await writeFile(join(snapshotDir, canaryPath), canaryEncrypted);
   const canary = { path: canaryPath, sha256: await sha256Hex(canaryEncrypted), encryptedBytes: canaryEncrypted.byteLength, compressedBytes: 0, plaintextBytes: 28, plaintext: 'FundScope snapshot canary:v1' };
   const fundsWithoutHistory = funds.map(({ history, ...fund }) => ({ ...fund, history: [] }));
-  const index = await writeEncrypted('data/index.enc', JSON.stringify(fundsWithoutHistory));
+  const index = await writeEncrypted(`${snapshotPrefix}index.enc`, JSON.stringify(fundsWithoutHistory));
   for (let start = 0; start < funds.length; start += 100) {
     for (const fund of funds.slice(start, start + 100)) {
       if (!fund.history?.length) continue;
-      const path = `data/nav/${fund.code}.enc`;
+      const path = `${snapshotPrefix}nav/${fund.code}.enc`;
       refs[String(fund.code)] = await writeEncrypted(path, JSON.stringify(fund.history));
     }
     if (start && start % 1000 === 0) logger(`Encrypted NAV packs: ${Math.min(start + 100, funds.length).toLocaleString('en-IN')} / ${funds.length.toLocaleString('en-IN')}`);
