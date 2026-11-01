@@ -86,3 +86,18 @@ jobs:
       - name: Deploy temporary page
         id: deploy
         uses: actions/deploy-pages@v5.0.1
+      - name: Verify public Pages URL serves the test page
+        env:
+          PAGES_URL: ${{ steps.deploy.outputs.page_url }}
+        run: |
+          if [ -z "$PAGES_URL" ]; then echo "Pages deployment did not return a URL"; exit 1; fi
+          for attempt in $(seq 1 12); do
+            status=$(curl --silent --show-error --location --output "$RUNNER_TEMP/w0-page.html" --write-out '%{http_code}' "$PAGES_URL" || true)
+            if [ "$status" = "200" ] && grep -q "FundScope W0 hosting check" "$RUNNER_TEMP/w0-page.html"; then
+              echo "- Pages smoke test: $PAGES_URL served the temporary page with HTTP 200." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Pages smoke test did not serve the expected page at $PAGES_URL (last HTTP status: ${status:-none})." >> "$GITHUB_STEP_SUMMARY"
+          exit 1
