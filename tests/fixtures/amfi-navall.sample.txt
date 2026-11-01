@@ -1,0 +1,516 @@
+Scheme Code;ISIN Div Payout/ ISIN Growth;ISIN Div Reinvestment;Scheme Name;Plan;Option;Net Asset Value;Date
+
+Open Ended Schemes(Children’s Fund - Childrens' Fund)
+
+Axis Mutual Fund
+135762;INF846K01WO1;-;Axis Children's Fund;Direct Plan;Growth Option;29.1949;30-Oct-2026
+
+Open Ended Schemes(Debt Scheme - Banking and PSU Fund)
+
+Franklin Templeton Mutual Fund
+129008;INF090I01KR8;-;Franklin India Banking & PSU Debt Fund;Direct Plan;Growth;25.3176;30-Oct-2026
+
+Open Ended Schemes(Debt Scheme - Corporate Bond Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119533;INF209K01S38;-;Aditya Birla Sun Life Corporate Bond Fund;Direct Plan;GROWTH;120.9677;30-Oct-2026
+
+Open Ended Schemes(Debt Scheme - Credit Risk Fund)
+
+Aditya Birla Sun Life Mutual Fund
+134385;INF209KA1K96;INF209KA1L04;Aditya Birla Sun Life Credit Risk Fund;Direct Plan;IDCW Re-investment;14.7282;30-Oct-2026
+
+Open Ended Schemes(Debt Scheme - Dynamic Bond)
+
+Franklin Templeton Mutual Fund
+118495;INF090I01HB8;-;Franklin India Dynamic Accrual Fund (No. of segregated portfolios- 3);Direct Plan;;84.0329;07-Aug-2022
+
+Open Ended Schemes(Debt Scheme - Gilt Fund)
+
+Bajaj Finserv Mutual Fund
+153206;INF0QA701AP9;-;Bajaj Finserv Gilt Fund;Direct Plan;Growth;1077.2620;30-Oct-2026
+
+Open Ended Schemes(Debt Scheme - Liquid Fund)
+
+Bajaj Finserv Mutual Fund
+151835;-;INF0QA701029;Bajaj Finserv Liquid Fund;Direct Plan;Daily - IDCW;1034.6939;01-Nov-2026
+
+Open Ended Schemes(Debt Scheme - Long Duration Fund)
+
+ICICI Prudential Mutual Fund
+101642;INF109K01EW5;INF109K01373;ICICI Prudential Long Term Bond Fund-;;;10.8508;24-Apr-2020
+
+Open Ended Schemes(Debt Scheme - Low Duration Fund)
+
+Franklin Templeton Mutual Fund
+118530;INF090I01HG7;-;Franklin India Low Duration Fund (No. of Segregated Portfolios-2);Direct Plan;;28.6858;07-Aug-2022
+
+Open Ended Schemes(Debt Scheme - Medium Duration Fund)
+
+Franklin Templeton Mutual Fund
+118554;INF090I01JI9;-;Franklin India Income Opportunities Fund (no. of segregated portfolios- 2);;;26.5759;12-Dec-2021
+
+Open Ended Schemes(Debt Scheme - Medium to Long Duration Fund)
+
+Tata Mutual Fund
+119876;INF277K01OY5;-;Tata Income Fund;Direct Plan;Growth Option;72.1992;23-Sep-2022
+
+Open Ended Schemes(Debt Scheme - Money Market Fund)
+
+Bandhan Mutual Fund
+131389;INF194KA1TG5;INF194KA1TH3;Bandhan Money  Market Fund;Regular Plan;Periodic IDCW;14.3525;31-Oct-2026
+
+Open Ended Schemes(Debt Scheme - Overnight Fund)
+
+Aditya Birla Sun Life Mutual Fund
+145488;INF209KB1ZL4;-;ADITYA BIRLA SUN LIFE OVERNIGHT FUND;Direct Plan;Monthly IDCW;1000.3335;01-Nov-2026
+
+Open Ended Schemes(Debt Scheme - Short Duration Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119496;INF209KA1KQ6;INF209K01XL6;Aditya Birla Sun Life Short Term Fund;Direct Plan;IDCW;10.4627;30-Oct-2026
+
+Open Ended Schemes(Debt Scheme - Ultra Short Duration Fund)
+
+Franklin Templeton Mutual Fund
+107248;INF090I01CG8;-;Franklin India Ultra Short Bond Fund (no. of segregated portfolio-1);;;33.7757;07-Aug-2022
+
+Open Ended Schemes(Equity Scheme - Contra Fund)
+
+Kotak Mahindra Mutual Fund
+119769;INF174K01KZ9;-;Kotak Contra Fund;Direct Plan;Growth;170.58;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Dividend Yield Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119507;INF209K01WA1;-;Aditya Birla Sun Life Dividend Yield Fund;Direct Plan;GROWTH;466.58;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - ELSS)
+
+Aditya Birla Sun Life Mutual Fund
+119544;INF209K01UN8;-;Aditya Birla Sun Life ELSS Tax Saver Fund;Direct Plan;GROWTH;65.14;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Flexi Cap Fund)
+
+Abakkus Mutual Fund
+154043;INF2JJD01136;-;Abakkus Flexi Cap Fund;Direct Plan;Growth;10.4790;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Focused Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119564;INF209K01WE3;-;Aditya Birla Sun Life Focused Fund;Direct Plan;GROWTH;162.5776;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Large & Mid Cap Fund)
+
+Abakkus Mutual Fund
+154477;INF2JJD01193;-;Abakkus Large & Mid Cap Fund;Direct Plan;Growth;9.2240;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Large Cap Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119528;INF209K01YY7;-;Aditya Birla Sun Life Large Cap Fund;Direct Plan;GROWTH;554.53;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Mid Cap Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119620;INF209K01Q30;-;Aditya Birla Sun Life Midcap Fund;Direct Plan;GROWTH;875.73;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Multi Cap Fund)
+
+Aditya Birla Sun Life Mutual Fund
+148921;INF209KB1Y49;-;Aditya Birla Sun Life Multi-Cap Fund;Direct Plan;GROWTH;21.63;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Sectoral/ Thematic)
+
+Aditya Birla Sun Life Mutual Fund
+125598;INF209K013W3;INF209K015W8;Aditya Birla Sun Life Banking and Financial Services Fund;Direct Plan;IDCW Payout;28.96;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Small Cap Fund)
+
+Abakkus Mutual Fund
+154215;INF2JJD01177;-;Abakkus Small Cap Fund;Direct Plan;Growth;11.5700;30-Oct-2026
+
+Open Ended Schemes(Equity Scheme - Value Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119658;INF209K01WP9;INF209K01WR5;Aditya Birla Sun Life Value Fund;Direct Plan;IDCW;71.8193;30-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Contra Fund)
+
+Bandhan Mutual Fund
+154599;INF194KB1LC0;INF194KB1LD8;Bandhan Contra Fund;Direct Plan;Annual IDCW;9.5804;31-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Dividend Yield Fund)
+
+ICICI Prudential Mutual Fund
+129312;INF109KA1UA0;-;ICICI Prudential Dividend Yield Fund;Direct Plan;Growth;55.47;30-Oct-2026
+
+Open Ended Schemes(Equity Schemes - ELSS- Tax Saver Fund)
+
+Axis Mutual Fund
+120503;INF846K01EW2;-;Axis ELSS- Tax Saver Fund;Direct Plan;Growth Option;106.8197;30-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Flexi Cap Fund)
+
+360 ONE Mutual Fund
+151796;INF579M01AS1;-;360 ONE Flexicap Fund;Direct Plan;GROWTH Option;16.3449;30-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Focused Fund)
+
+360 ONE Mutual Fund
+131581;INF579M01910;INF579M01928;360 ONE Focused Fund;Direct Plan;IDCW Option;53.6420;30-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Large & Mid Cap Fund)
+
+Axis Mutual Fund
+145110;INF846K01J46;-;Axis Large & Mid Cap Fund;Direct Plan;Growth Option;37.20;29-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Large Cap Fund)
+
+Axis Mutual Fund
+120465;INF846K01DP8;-;Axis Large Cap Fund;Direct Plan;Growth Option;67.60;30-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Mid Cap Fund)
+
+Bandhan Mutual Fund
+150404;INF194KB1DJ2;-;BANDHAN MID CAP FUND;Direct Plan;Growth;19.333;31-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Multi Cap Fund)
+
+Axis Mutual Fund
+149383;INF846K013E0;-;Axis Multicap Fund;Direct Plan;Growth Option;20.12;30-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Sectoral Fund)
+
+Bandhan Mutual Fund
+151816;INF194KB1GB2;-;BANDHAN FINANCIAL SERVICES FUND;Direct Plan;Growth;14.561;31-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Small Cap Fund)
+
+Axis Mutual Fund
+125354;INF846K01K35;-;Axis Small Cap Fund;Direct Plan;Growth Option;126.97;30-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Thematic Fund)
+
+360 ONE Mutual Fund
+149318;INF579M01AI2;-;360 ONE QUANT FUND;Direct Plan;GROWTH Option;18.7383;30-Oct-2026
+
+Open Ended Schemes(Equity Schemes - Value Fund)
+
+Axis Mutual Fund
+149166;INF846K010C0;-;Axis Value Fund;Direct Plan;Growth Option;20.68;30-Oct-2026
+
+Open Ended Schemes(Exchange Traded Funds (ETFs) - Debt ETF)
+
+Aditya Birla Sun Life Mutual Fund
+151533;INF209KB18T9;-;Aditya Birla Sun Life CRISIL Liquid Overnight ETF;;;1000.0000;01-Nov-2026
+
+Open Ended Schemes(Exchange Traded Funds (ETFs) - Equity ETF)
+
+360 ONE Mutual Fund
+154366;INF579M01BP5;-;360 ONE MSCI India ETF;Direct Plan;GROWTH Option;9.5568;30-Oct-2026
+
+Open Ended Schemes(Exchange Traded Funds (ETFs) - ETFs investing overseas)
+
+Mirae Asset Mutual Fund
+149379;INF769K01HS7;-;Mirae Asset Hang Seng TECH ETF;;;15.2896;30-Oct-2026
+
+Open Ended Schemes(Exchange Traded Funds (ETFs) - Gold ETF)
+
+360 ONE Mutual Fund
+153357;INF579M01BB5;-;360 ONE Gold ETF;Direct Plan;GROWTH Option;135.9809;30-Oct-2026
+
+Open Ended Schemes(Exchange Traded Funds (ETFs) - Hybrid ETF)
+
+Mirae Asset Mutual Fund
+154497;INF769K01RJ5;-;Mirae Asset Nifty200 Momentum 30 Plus 8-13 yr G-Sec 50:50 ETF;;;9.5922;30-Oct-2026
+
+Open Ended Schemes(Exchange Traded Funds (ETFs) - Other ETF)
+
+Groww Mutual Fund
+154199;INF666M01OD9;-;Groww BSE Hospitals ETF;;;46.2565;30-Oct-2026
+
+Open Ended Schemes(Exchange Traded Funds (ETFs) - Silver ETF)
+
+360 ONE Mutual Fund
+153415;INF579M01BC3;-;360 ONE Silver ETF;Direct Plan;GROWTH Option;178.4341;30-Oct-2026
+
+Open Ended Schemes(Fund of Funds Scheme (Domestic) - Fund of Funds Scheme (Domestic))
+
+Aditya Birla Sun Life Mutual Fund
+149780;INF209KB16F2;-;Aditya Birla Sun Life Silver ETF FOF;Direct Plan;GROWTH;28.1831;30-Oct-2026
+
+Open Ended Schemes(Gilt)
+
+ICICI Prudential Mutual Fund
+120606;INF109K019C3;INF109K010D0;ICICI Prudential Gilt Fund Investment Plan PF Option;;;10.9255;25-May-2018
+
+Open Ended Schemes(Growth)
+
+ICICI Prudential Mutual Fund
+103028;INF109K01DZ0;INF109K01AO0;ICICI Prudential Blended Plan A;;;13.5898;22-Apr-2016
+
+Open Ended Schemes(Hybrid Scheme - Aggressive Hybrid Fund)
+
+Bandhan Mutual Fund
+140382;INF194KA1U56;-;Bandhan Aggressive Hybrid Fund;Direct Plan;Growth;31.096;31-Oct-2026
+
+Open Ended Schemes(Hybrid Scheme - Arbitrage Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119526;INF209K01VP1;-;ADITYA BIRLA SUN LIFE ARBITRAGE FUND;Direct Plan;GROWTH;31.1818;30-Oct-2026
+
+Open Ended Schemes(Hybrid Scheme - Balanced Hybrid Fund)
+
+ICICI Prudential Mutual Fund
+154417;INF109K1A518;-;ICICI Prudential Balanced Hybrid Fund;Direct Plan;Growth;9.74;30-Oct-2026
+
+Open Ended Schemes(Hybrid Scheme - Conservative Hybrid Fund)
+
+Bandhan Mutual Fund
+112353;INF194K01RW9;-;BANDHAN CONSERVATIVE HYBRID FUND;Regular Plan;Growth;32.6123;31-Oct-2026
+
+Open Ended Schemes(Hybrid Scheme - Dynamic Asset Allocation or Balanced Advantage)
+
+Aditya Birla Sun Life Mutual Fund
+131670;INF084M01DJ5;-;Aditya Birla Sun Life Balanced Advantage Fund;Direct Plan;GROWTH;126.86;30-Oct-2026
+
+Open Ended Schemes(Hybrid Scheme - Equity Savings)
+
+Aditya Birla Sun Life Mutual Fund
+132996;INF209KA1TQ7;INF209KA1TR5;Aditya Birla Sun Life Equity Savings Fund;Direct Plan;IDCW;15.12;30-Oct-2026
+
+Open Ended Schemes(Hybrid Scheme - Multi Asset Allocation)
+
+Aditya Birla Sun Life Mutual Fund
+151307;INF209KB15R9;-;Aditya Birla Sun Life Multi Asset Allocation Fund;Direct Plan;GROWTH;17.0045;30-Oct-2026
+
+Open Ended Schemes(Hybrid Schemes - Aggressive Hybrid Fund)
+
+Aditya Birla Sun Life Mutual Fund
+120517;INF209K01ZC0;-;Aditya Birla Sun Life Aggressive Hybrid Fund;Direct Plan;GROWTH;1673.78;30-Oct-2026
+
+Open Ended Schemes(Hybrid Schemes - Arbitrage Fund)
+
+Axis Mutual Fund
+130773;INF846K01PZ1;-;Axis Arbitrage Fund;Direct Plan;Growth Option;22.0898;30-Oct-2026
+
+Open Ended Schemes(Hybrid Schemes - Balanced Advantage Fund/ Dynamic Asset Allocation)
+
+Axis Mutual Fund
+141642;INF846K01A29;-;Axis Balanced Advantage Fund;Direct Plan;Growth Option;23.69;30-Oct-2026
+
+Open Ended Schemes(Hybrid Schemes - Balanced Hybrid Fund)
+
+360 ONE Mutual Fund
+152073;INF579M01AZ6;INF579M01BA7;360 ONE Balanced Hybrid Fund;Direct Plan;IDCW Option;13.3745;30-Oct-2026
+
+Open Ended Schemes(Hybrid Schemes - Conservative Hybrid Fund)
+
+Aditya Birla Sun Life Mutual Fund
+120550;INF209K01R47;INF209K01XI2;Aditya Birla Sun Life Conservative Hybrid Fund;Direct Plan;Monthly IDCW;26.5261;30-Oct-2026
+
+Open Ended Schemes(Hybrid Schemes - Equity Savings Fund)
+
+Axis Mutual Fund
+135120;INF846K01VJ3;-;Axis Equity Savings Fund;Direct Plan;Growth Option;26.35;30-Oct-2026
+
+Open Ended Schemes(Hybrid Schemes - Multi Asset Allocation Fund)
+
+360 ONE Mutual Fund
+153774;INF579M01BM2;-;360 ONE Multi Asset Allocation Fund;Direct Plan;GROWTH Option;11.7988;30-Oct-2026
+
+Open Ended Schemes(Income)
+
+ICICI Prudential Mutual Fund
+103062;INF109K01EA1;INF109K01AQ5;ICICI Prudential Blended Plan B;;;15.0425;07-Oct-2016
+
+Open Ended Schemes(Income/Debt Oriented Schemes - 10-year Constant Maturity Gilt Fund)
+
+Bandhan Mutual Fund
+108646;INF194K01FF9;INF194K01FE2;Bandhan    10 year Constant Maturity Gilt Fund;Regular Plan;Quarterly IDCW;11.3514;31-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Banking and PSU Debt Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119551;INF209KA12Z1;INF209KA13Z9;Aditya Birla Sun Life Banking & PSU Debt Fund;Direct Plan;IDCW-Re-investment;106.6503;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Corporate Bond Fund)
+
+Axis Mutual Fund
+141586;INF846K01ZN6;-;AXIS Corporate Bond Fund;Direct Plan;Daily IDCW Option;10.1932;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Credit Risk Fund)
+
+Axis Mutual Fund
+130314;INF846K01PJ5;-;Axis Credit Risk Fund;Direct Plan;Growth Option;26.4682;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Dynamic Term Fund)
+
+360 ONE Mutual Fund
+122612;INF579M01183;-;360 ONE Dynamic Term Fund;Regular Plan;GROWTH Option;23.9059;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Floating Interest Rates Fund)
+
+Aditya Birla Sun Life Mutual Fund
+122645;INF209K01UW9;-;Aditya Birla Sun Life Floating Interest Rates Fund;Direct Plan;Daily IDCW;99.9450;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Gilt Fund)
+
+Aditya Birla Sun Life Mutual Fund
+100058;INF209K01AC3;INF209K01AD1;Aditya Birla Sun Life Gilt Fund;Regular Plan;GROWTH;80.6515;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Liquid Fund)
+
+360 ONE Mutual Fund
+125349;-;INF579M01688;360 ONE Liquid Fund;Direct Plan;IDCW Option;1000.2449;01-Nov-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Long Term Fund)
+
+Aditya Birla Sun Life Mutual Fund
+150484;INF209KB17J2;-;Aditya Birla Sun Life Long Term Fund;Direct Plan;GROWTH;13.2049;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Medium Term Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119541;INF209KA1KP8;-;Aditya Birla Sun Life Medium Term Fund;Direct Plan;Quarterly IDCW;14.3190;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Medium to Long Term Fund)
+
+Aditya Birla Sun Life Mutual Fund
+133446;INF209KA1WL2;INF209KA1WM0;Aditya Birla Sun Life Medium to Long Term Fund;Direct Plan;IDCW;12.3099;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Money Market Fund)
+
+Aditya Birla Sun Life Mutual Fund
+101973;-;INF209K01SZ6;Aditya Birla Sun Life Money Market Fund;Regular Plan;Daily IDCW;100.0200;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Overnight Fund)
+
+360 ONE Mutual Fund
+153703;INF579M01BG4;-;360 ONE Overnight Fund;Direct Plan;GROWTH Option;1071.2175;01-Nov-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Sectoral Fund)
+
+Aditya Birla Sun Life Mutual Fund
+154805;INF209KC1779;-;Aditya Birla Sun Life Financial Services Sectoral Debt Fund;Direct Plan;Growth;10.0187;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Short Term Fund)
+
+Axis Mutual Fund
+120510;INF846K01EI1;-;Axis Short Term Fund;Direct Plan;Growth Option;36.2658;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Ultra Short Term Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119501;INF209K01UR9;-;Aditya Birla Sun Life Ultra Short Term Fund;Direct Plan;GROWTH;607.5350;30-Oct-2026
+
+Open Ended Schemes(Income/Debt Oriented Schemes - Ultra Short to Short Term Fund)
+
+Aditya Birla Sun Life Mutual Fund
+119523;INF209K01XU7;-;Aditya Birla Sun Life Ultra short to short term Fund;Direct Plan;GROWTH;786.5687;30-Oct-2026
+
+Open Ended Schemes(Index Funds - Debt Funds)
+
+Axis Mutual Fund
+151436;INF846K013O9;INF846K014O7;Axis Crisil IBX 50:50 Gilt Plus SDL September 2027 Index Fund;Direct Plan;IDCW Option;12.9917;30-Oct-2026
+
+Open Ended Schemes(Index Funds - Equity Funds)
+
+360 ONE Mutual Fund
+151165;INF579M01AN2;-;360 ONE ELSS Tax Saver Nifty 50 Index Fund;Direct Plan;GROWTH Option;13.1149;30-Oct-2026
+
+Open Ended Schemes(Index Funds - Hybrid Fund)
+
+HDFC Mutual Fund
+154793;INF179KC1LB0;-;HDFC Nifty LargeMidcap250 Plus 8-13 yr G-sec 70:30 Index Fund;Direct Plan;Growth Option;10.1669;30-Oct-2026
+
+Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 10 Years)
+
+ICICI Prudential Mutual Fund
+154578;INF109K1A583;-;ICICI Prudential Life Cycle Fund 2036;;;9.7170;30-Oct-2026
+
+Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 15 Years)
+
+ICICI Prudential Mutual Fund
+154580;INF109K1A625;-;ICICI Prudential Life Cycle Fund 2041;;;9.5550;30-Oct-2026
+
+Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 30 Years)
+
+Mirae Asset Mutual Fund
+154775;INF769K01RU2;-;Mirae Asset Life Cycle Fund 2056;Direct Plan;Growth;9.982;30-Oct-2026
+
+Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 5 Years)
+
+ICICI Prudential Mutual Fund
+154564;INF109K1A609;-;ICICI Prudential Life Cycle Fund 2031;;;9.3714;30-Oct-2026
+
+Open Ended Schemes(Other Scheme - FoF Domestic)
+
+Aditya Birla Sun Life Mutual Fund
+132175;INF084M01085;INF084M01093;Aditya Birla Sun Life Aggressive Hybrid Omni FOF;Regular Plan;IDCW;37.7093;30-Oct-2026
+
+Open Ended Schemes(Other Scheme - FoF Overseas)
+
+Aditya Birla Sun Life Mutual Fund
+132141;INF084M01EC8;INF084M01ED6;Aditya Birla Sun Life Global Emerging Opportunities Fund;Direct Plan;IDCW;29.5226;29-Oct-2026
+
+Open Ended Schemes(Other Scheme - Gold ETF)
+
+Angel One Mutual Fund
+153826;INF1J2R01114;-;ANGEL ONE GOLD ETF;Direct Plan;;13.0152;30-Oct-2026
+
+Open Ended Schemes(Other Scheme - Index Funds)
+
+Aditya Birla Sun Life Mutual Fund
+150702;INF209KB14N1;-;Aditya Birla Sun Life Crisil IBX 50:50 Gilt Plus SDL Apr 2028 Index Fund;Direct Plan;GROWTH;13.3854;30-Oct-2026
+
+Open Ended Schemes(Other Scheme - Other  ETFs)
+
+Aditya Birla Sun Life Mutual Fund
+152802;INF209KC1142;-;Aditya Birla Sun Life Crisil 10 year Gilt ETF;;;109.9745;30-Oct-2026
+
+Open Ended Schemes(Overseas Fund of Funds - Fund of Funds investing overseas)
+
+Aditya Birla Sun Life Mutual Fund
+149289;INF209KB19C3;INF209KB10D0;Aditya Birla Sun Life US Equity Passive FOF;Direct Plan;IDCW;22.2079;30-Oct-2026
+
+Open Ended Schemes(Solution Oriented Scheme - Children’s Fund)
+
+Aditya Birla Sun Life Mutual Fund
+146407;INF209KB1E84;-;ADITYA BIRLA SUN LIFE BAL BHAVISHYA YOJNA;Direct Plan;GROWTH;22.15;30-Oct-2026
+
+Open Ended Schemes(Solution Oriented Scheme - Retirement Fund)
+
+Aditya Birla Sun Life Mutual Fund
+146576;INF209KB1I31;INF209KB1I49;Aditya Birla Sun Life Retirement Fund-The 30s Plan;Direct Plan;IDCW;18.288;30-Oct-2026
+
+Open Ended Schemes(Solution Oriented Schemes ** - Retirement Fund)
+
+Axis Mutual Fund
+147825;INF846K01S86;-;Axis Retirement Fund - Aggressive Plan;Direct Plan;Growth Option;19.59;30-Oct-2026
+
+Close Ended Schemes(ELSS)
+
+Bank of India Mutual Fund
+141950;INF761K01DS3;-;BANK OF INDIA MID CAP TAX FUND SERIES 1;Direct Plan;Growth;29.53;30-Oct-2026
+
+Close Ended Schemes(Growth)
+
+HDFC Mutual Fund
+141581;INF179KC1AL2;-;HDFC Equity Opp Fund - II - 1100D June 2017 (1);;;13.298;20-Jan-2022
+
+Close Ended Schemes(Income)
+
+Aditya Birla Sun Life Mutual Fund
+149017;INF209KB12A2;-;Aditya Birla Sun Life Fixed Term Plan - Series TI (1837 days);;;13.5721;09-Jul-2026
+
+Close Ended Schemes(Income/Debt Oriented Schemes - Fixed Term Plan)
+
+Mirae Asset Mutual Fund
+154834;INF769K01RZ1;-;Mirae Asset Fixed Maturity Plan – Series VI– 3 to 6 Months;Direct Plan;Growth;10.0043;30-Oct-2026
+
+Close Ended Schemes(Income/Debt Oriented Schemes - Other Debt Scheme)
+
+Aditya Birla Sun Life Mutual Fund
+154859;INF209KC1837;-;Aditya Birla Sun Life Fixed Maturity Plan-Series VB (136 Days);Direct Plan;Growth;10.0056;30-Oct-2026

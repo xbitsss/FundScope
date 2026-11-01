@@ -1,0 +1,20 @@
+{
+  "source_url": "https://api.mfapi.in/mf/129008",
+  "captured_at": "2026-11-01T08:22:58.852Z",
+  "status": "SUCCESS",
+  "meta": {
+    "fund_house": "Franklin Templeton Mutual Fund",
+    "scheme_type": "Open Ended Schemes",
+    "scheme_category": "Debt Scheme - Banking and PSU Fund",
+    "scheme_code": 129008,
+    "scheme_name": "Franklin India Banking & PSU Debt Fund - Direct Plan - Growth",
+    "isin_growth": "INF090I01KR8",
+    "isin_div_reinvestment": null
+  },
+  "sample_data": [
+    {
+      "date": "30-10-2026",
+      "nav": "25.31760"
+    }
+  ]
+}

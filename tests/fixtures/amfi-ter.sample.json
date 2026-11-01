@@ -1,0 +1,36 @@
+{
+  "source_url": "https://www.amfiindia.com/api/populate-te-rdata-revised?MF_ID=53&Month=10-2026&strCat=-1&strType=1&page=1&pageSize=10000",
+  "captured_at": "2026-11-01T08:22:59.579Z",
+  "amc": "Axis Mutual Fund",
+  "requested_month": "10-2026",
+  "payload": {
+    "meta": {
+      "page": 1,
+      "pageSize": 100,
+      "total": 2494,
+      "pageCount": 25
+    },
+    "data": [
+      {
+        "NSDLSchemeCode": "AXIS/O/H/AHF/18/05/0027",
+        "Scheme_Name": "Axis Aggressive Hybrid Fund",
+        "SchemeType_Desc": "Open Ended",
+        "SchemeCat_Desc": "Hybrid Schemes - Aggressive Hybrid Fund",
+        "TER_Year": "2026-2027",
+        "TER_Date": "2026-10-01T00:00:00.000Z",
+        "R_BER": "1.8300",
+        "R_BrokerageCost": "0.0300",
+        "R_TransactionCost": "0.0000",
+        "R_StatutoryLevies": "0.3700",
+        "R_TER": "2.2300",
+        "D_BER": "0.9400",
+        "D_BrokerageCost": "0.0300",
+        "D_TransactionCost": "0.0000",
+        "D_StatutoryLevies": "0.2100",
+        "D_TER": "1.1800",
+        "MF_ID": 53,
+        "Month": "10-2026"
+      }
+    ]
+  }
+}

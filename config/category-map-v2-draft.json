@@ -1,0 +1,1245 @@
+{
+  "taxonomy_version": 2,
+  "status": "C0 discovery draft; not used by production classifier",
+  "source": "https://portal.amfiindia.com/spages/NAVAll.txt",
+  "captured_at": "2026-11-01T08:22:59.958Z",
+  "observed_category_count": 101,
+  "normalization_aliases": [
+    {
+      "observed_family": "Equity Schemes",
+      "canonical_family": "Equity Scheme",
+      "rationale": "Observed plural and singular family spellings; compare classes before binding."
+    },
+    {
+      "observed_family": "Hybrid Schemes",
+      "canonical_family": "Hybrid Scheme",
+      "rationale": "Observed plural and singular family spellings; compare classes before binding."
+    },
+    {
+      "observed_family": "Income/Debt Oriented Schemes",
+      "canonical_family": "Debt Scheme",
+      "rationale": "Legacy family explicitly identifies debt; retain raw value in provenance and verify against the SEBI circular."
+    },
+    {
+      "observed_family": "Solution Oriented Schemes **",
+      "canonical_family": "Solution Oriented Scheme",
+      "rationale": "Possible asterisk footnote variant; confirm in AMFI metadata before canonicalizing."
+    }
+  ],
+  "rules": [
+    {
+      "category_raw": "Children’s Fund - Childrens' Fund",
+      "family": "Children’s Fund",
+      "sub_category": "Childrens' Fund",
+      "scheme_count": 8,
+      "observed_headers": [
+        "Open Ended Schemes(Children’s Fund - Childrens' Fund)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_multi_asset_or_legacy_quarantine",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Debt Scheme - Banking and PSU Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Banking and PSU Fund",
+      "scheme_count": 17,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Banking and PSU Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Corporate Bond Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Corporate Bond Fund",
+      "scheme_count": 131,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Corporate Bond Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Credit Risk Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Credit Risk Fund",
+      "scheme_count": 135,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Credit Risk Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Dynamic Bond",
+      "family": "Debt Scheme",
+      "sub_category": "Dynamic Bond",
+      "scheme_count": 34,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Dynamic Bond)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Gilt Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Gilt Fund",
+      "scheme_count": 87,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Gilt Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Liquid Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Liquid Fund",
+      "scheme_count": 301,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Liquid Fund)"
+      ],
+      "proposed_asset_class": "liquid",
+      "proposed_rule_id": "draft_liquid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Long Duration Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Long Duration Fund",
+      "scheme_count": 2,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Long Duration Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Low Duration Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Low Duration Fund",
+      "scheme_count": 18,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Low Duration Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Medium Duration Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Medium Duration Fund",
+      "scheme_count": 56,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Medium Duration Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Medium to Long Duration Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Medium to Long Duration Fund",
+      "scheme_count": 6,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Medium to Long Duration Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Money Market Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Money Market Fund",
+      "scheme_count": 154,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Money Market Fund)"
+      ],
+      "proposed_asset_class": "liquid",
+      "proposed_rule_id": "draft_liquid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Overnight Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Overnight Fund",
+      "scheme_count": 200,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Overnight Fund)"
+      ],
+      "proposed_asset_class": "liquid",
+      "proposed_rule_id": "draft_liquid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Short Duration Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Short Duration Fund",
+      "scheme_count": 71,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Short Duration Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Debt Scheme - Ultra Short Duration Fund",
+      "family": "Debt Scheme",
+      "sub_category": "Ultra Short Duration Fund",
+      "scheme_count": 80,
+      "observed_headers": [
+        "Open Ended Schemes(Debt Scheme - Ultra Short Duration Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "ELSS",
+      "family": "ELSS",
+      "sub_category": null,
+      "scheme_count": 77,
+      "observed_headers": [
+        "Close Ended Schemes(ELSS)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_legacy_elss",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Contra Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Contra Fund",
+      "scheme_count": 12,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Contra Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Dividend Yield Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Dividend Yield Fund",
+      "scheme_count": 38,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Dividend Yield Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - ELSS",
+      "family": "Equity Scheme",
+      "sub_category": "ELSS",
+      "scheme_count": 110,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - ELSS)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Flexi Cap Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Flexi Cap Fund",
+      "scheme_count": 128,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Flexi Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Focused Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Focused Fund",
+      "scheme_count": 74,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Focused Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Large & Mid Cap Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Large & Mid Cap Fund",
+      "scheme_count": 101,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Large & Mid Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Large Cap Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Large Cap Fund",
+      "scheme_count": 110,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Large Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Mid Cap Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Mid Cap Fund",
+      "scheme_count": 81,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Mid Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Multi Cap Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Multi Cap Fund",
+      "scheme_count": 72,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Multi Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Sectoral/ Thematic",
+      "family": "Equity Scheme",
+      "sub_category": "Sectoral/ Thematic",
+      "scheme_count": 725,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Sectoral/ Thematic)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Small Cap Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Small Cap Fund",
+      "scheme_count": 96,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Small Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Scheme - Value Fund",
+      "family": "Equity Scheme",
+      "sub_category": "Value Fund",
+      "scheme_count": 62,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Scheme - Value Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Contra Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Contra Fund",
+      "scheme_count": 12,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Contra Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Dividend Yield Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Dividend Yield Fund",
+      "scheme_count": 12,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Dividend Yield Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - ELSS- Tax Saver Fund",
+      "family": "Equity Schemes",
+      "sub_category": "ELSS- Tax Saver Fund",
+      "scheme_count": 86,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - ELSS- Tax Saver Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Flexi Cap Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Flexi Cap Fund",
+      "scheme_count": 60,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Flexi Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Focused Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Focused Fund",
+      "scheme_count": 40,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Focused Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Large & Mid Cap Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Large & Mid Cap Fund",
+      "scheme_count": 50,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Large & Mid Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Large Cap Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Large Cap Fund",
+      "scheme_count": 54,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Large Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Mid Cap Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Mid Cap Fund",
+      "scheme_count": 54,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Mid Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Multi Cap Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Multi Cap Fund",
+      "scheme_count": 58,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Multi Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Sectoral Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Sectoral Fund",
+      "scheme_count": 80,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Sectoral Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Small Cap Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Small Cap Fund",
+      "scheme_count": 47,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Small Cap Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Thematic Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Thematic Fund",
+      "scheme_count": 230,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Thematic Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Equity Schemes - Value Fund",
+      "family": "Equity Schemes",
+      "sub_category": "Value Fund",
+      "scheme_count": 42,
+      "observed_headers": [
+        "Open Ended Schemes(Equity Schemes - Value Fund)"
+      ],
+      "proposed_asset_class": "equity",
+      "proposed_rule_id": "draft_equity_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Exchange Traded Funds (ETFs) - Debt ETF",
+      "family": "Exchange Traded Funds (ETFs)",
+      "sub_category": "Debt ETF",
+      "scheme_count": 12,
+      "observed_headers": [
+        "Open Ended Schemes(Exchange Traded Funds (ETFs) - Debt ETF)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Exchange Traded Funds (ETFs) - Equity ETF",
+      "family": "Exchange Traded Funds (ETFs)",
+      "sub_category": "Equity ETF",
+      "scheme_count": 86,
+      "observed_headers": [
+        "Open Ended Schemes(Exchange Traded Funds (ETFs) - Equity ETF)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Exchange Traded Funds (ETFs) - ETFs investing overseas",
+      "family": "Exchange Traded Funds (ETFs)",
+      "sub_category": "ETFs investing overseas",
+      "scheme_count": 2,
+      "observed_headers": [
+        "Open Ended Schemes(Exchange Traded Funds (ETFs) - ETFs investing overseas)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Exchange Traded Funds (ETFs) - Gold ETF",
+      "family": "Exchange Traded Funds (ETFs)",
+      "sub_category": "Gold ETF",
+      "scheme_count": 10,
+      "observed_headers": [
+        "Open Ended Schemes(Exchange Traded Funds (ETFs) - Gold ETF)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Exchange Traded Funds (ETFs) - Hybrid ETF",
+      "family": "Exchange Traded Funds (ETFs)",
+      "sub_category": "Hybrid ETF",
+      "scheme_count": 1,
+      "observed_headers": [
+        "Open Ended Schemes(Exchange Traded Funds (ETFs) - Hybrid ETF)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Exchange Traded Funds (ETFs) - Other ETF",
+      "family": "Exchange Traded Funds (ETFs)",
+      "sub_category": "Other ETF",
+      "scheme_count": 25,
+      "observed_headers": [
+        "Open Ended Schemes(Exchange Traded Funds (ETFs) - Other ETF)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Exchange Traded Funds (ETFs) - Silver ETF",
+      "family": "Exchange Traded Funds (ETFs)",
+      "sub_category": "Silver ETF",
+      "scheme_count": 8,
+      "observed_headers": [
+        "Open Ended Schemes(Exchange Traded Funds (ETFs) - Silver ETF)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Fund of Funds Scheme (Domestic) - Fund of Funds Scheme (Domestic)",
+      "family": "Fund of Funds Scheme (Domestic)",
+      "sub_category": "Fund of Funds Scheme (Domestic)",
+      "scheme_count": 253,
+      "observed_headers": [
+        "Open Ended Schemes(Fund of Funds Scheme (Domestic) - Fund of Funds Scheme (Domestic))"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Gilt",
+      "family": "Gilt",
+      "sub_category": null,
+      "scheme_count": 13,
+      "observed_headers": [
+        "Open Ended Schemes(Gilt)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_legacy_gilt",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Growth",
+      "family": "Growth",
+      "sub_category": null,
+      "scheme_count": 245,
+      "observed_headers": [
+        "Close Ended Schemes(Growth)",
+        "Open Ended Schemes(Growth)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "UNMAPPED",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Hybrid Scheme - Aggressive Hybrid Fund",
+      "family": "Hybrid Scheme",
+      "sub_category": "Aggressive Hybrid Fund",
+      "scheme_count": 73,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Scheme - Aggressive Hybrid Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Scheme - Arbitrage Fund",
+      "family": "Hybrid Scheme",
+      "sub_category": "Arbitrage Fund",
+      "scheme_count": 118,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Scheme - Arbitrage Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Scheme - Balanced Hybrid Fund",
+      "family": "Hybrid Scheme",
+      "sub_category": "Balanced Hybrid Fund",
+      "scheme_count": 4,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Scheme - Balanced Hybrid Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Scheme - Conservative Hybrid Fund",
+      "family": "Hybrid Scheme",
+      "sub_category": "Conservative Hybrid Fund",
+      "scheme_count": 72,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Scheme - Conservative Hybrid Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Scheme - Dynamic Asset Allocation or Balanced Advantage",
+      "family": "Hybrid Scheme",
+      "sub_category": "Dynamic Asset Allocation or Balanced Advantage",
+      "scheme_count": 94,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Scheme - Dynamic Asset Allocation or Balanced Advantage)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Scheme - Equity Savings",
+      "family": "Hybrid Scheme",
+      "sub_category": "Equity Savings",
+      "scheme_count": 131,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Scheme - Equity Savings)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Scheme - Multi Asset Allocation",
+      "family": "Hybrid Scheme",
+      "sub_category": "Multi Asset Allocation",
+      "scheme_count": 82,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Scheme - Multi Asset Allocation)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Schemes - Aggressive Hybrid Fund",
+      "family": "Hybrid Schemes",
+      "sub_category": "Aggressive Hybrid Fund",
+      "scheme_count": 120,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Schemes - Aggressive Hybrid Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Schemes - Arbitrage Fund",
+      "family": "Hybrid Schemes",
+      "sub_category": "Arbitrage Fund",
+      "scheme_count": 79,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Schemes - Arbitrage Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Schemes - Balanced Advantage Fund/ Dynamic Asset Allocation",
+      "family": "Hybrid Schemes",
+      "sub_category": "Balanced Advantage Fund/ Dynamic Asset Allocation",
+      "scheme_count": 66,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Schemes - Balanced Advantage Fund/ Dynamic Asset Allocation)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Schemes - Balanced Hybrid Fund",
+      "family": "Hybrid Schemes",
+      "sub_category": "Balanced Hybrid Fund",
+      "scheme_count": 15,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Schemes - Balanced Hybrid Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Schemes - Conservative Hybrid Fund",
+      "family": "Hybrid Schemes",
+      "sub_category": "Conservative Hybrid Fund",
+      "scheme_count": 75,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Schemes - Conservative Hybrid Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Schemes - Equity Savings Fund",
+      "family": "Hybrid Schemes",
+      "sub_category": "Equity Savings Fund",
+      "scheme_count": 41,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Schemes - Equity Savings Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Hybrid Schemes - Multi Asset Allocation Fund",
+      "family": "Hybrid Schemes",
+      "sub_category": "Multi Asset Allocation Fund",
+      "scheme_count": 70,
+      "observed_headers": [
+        "Open Ended Schemes(Hybrid Schemes - Multi Asset Allocation Fund)"
+      ],
+      "proposed_asset_class": "hybrid",
+      "proposed_rule_id": "draft_hybrid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income",
+      "family": "Income",
+      "sub_category": null,
+      "scheme_count": 4523,
+      "observed_headers": [
+        "Close Ended Schemes(Income)",
+        "Open Ended Schemes(Income)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "UNMAPPED",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - 10-year Constant Maturity Gilt Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "10-year Constant Maturity Gilt Fund",
+      "scheme_count": 42,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - 10-year Constant Maturity Gilt Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Banking and PSU Debt Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Banking and PSU Debt Fund",
+      "scheme_count": 158,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Banking and PSU Debt Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Corporate Bond Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Corporate Bond Fund",
+      "scheme_count": 85,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Corporate Bond Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Credit Risk Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Credit Risk Fund",
+      "scheme_count": 37,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Credit Risk Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Dynamic Term Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Dynamic Term Fund",
+      "scheme_count": 175,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Dynamic Term Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Fixed Term Plan",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Fixed Term Plan",
+      "scheme_count": 8,
+      "observed_headers": [
+        "Close Ended Schemes(Income/Debt Oriented Schemes - Fixed Term Plan)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Floating Interest Rates Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Floating Interest Rates Fund",
+      "scheme_count": 119,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Floating Interest Rates Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Gilt Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Gilt Fund",
+      "scheme_count": 70,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Gilt Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Liquid Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Liquid Fund",
+      "scheme_count": 200,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Liquid Fund)"
+      ],
+      "proposed_asset_class": "liquid",
+      "proposed_rule_id": "draft_liquid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Long Term Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Long Term Fund",
+      "scheme_count": 70,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Long Term Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Medium Term Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Medium Term Fund",
+      "scheme_count": 117,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Medium Term Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Medium to Long Term Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Medium to Long Term Fund",
+      "scheme_count": 98,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Medium to Long Term Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Money Market Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Money Market Fund",
+      "scheme_count": 91,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Money Market Fund)"
+      ],
+      "proposed_asset_class": "liquid",
+      "proposed_rule_id": "draft_liquid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Other Debt Scheme",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Other Debt Scheme",
+      "scheme_count": 9,
+      "observed_headers": [
+        "Close Ended Schemes(Income/Debt Oriented Schemes - Other Debt Scheme)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Overnight Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Overnight Fund",
+      "scheme_count": 109,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Overnight Fund)"
+      ],
+      "proposed_asset_class": "liquid",
+      "proposed_rule_id": "draft_liquid_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Sectoral Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Sectoral Fund",
+      "scheme_count": 8,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Sectoral Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Short Term Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Short Term Fund",
+      "scheme_count": 202,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Short Term Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Ultra Short Term Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Ultra Short Term Fund",
+      "scheme_count": 224,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Ultra Short Term Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Income/Debt Oriented Schemes - Ultra Short to Short Term Fund",
+      "family": "Income/Debt Oriented Schemes",
+      "sub_category": "Ultra Short to Short Term Fund",
+      "scheme_count": 256,
+      "observed_headers": [
+        "Open Ended Schemes(Income/Debt Oriented Schemes - Ultra Short to Short Term Fund)"
+      ],
+      "proposed_asset_class": "debt",
+      "proposed_rule_id": "draft_debt_category",
+      "review_status": "C0_HYPOTHESIS"
+    },
+    {
+      "category_raw": "Index Funds - Debt Funds",
+      "family": "Index Funds",
+      "sub_category": "Debt Funds",
+      "scheme_count": 83,
+      "observed_headers": [
+        "Open Ended Schemes(Index Funds - Debt Funds)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Index Funds - Equity Funds",
+      "family": "Index Funds",
+      "sub_category": "Equity Funds",
+      "scheme_count": 255,
+      "observed_headers": [
+        "Open Ended Schemes(Index Funds - Equity Funds)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Index Funds - Hybrid Fund",
+      "family": "Index Funds",
+      "sub_category": "Hybrid Fund",
+      "scheme_count": 9,
+      "observed_headers": [
+        "Open Ended Schemes(Index Funds - Hybrid Fund)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Life Cycle Funds - Life Cycle Fund with Maturity of 10 Years",
+      "family": "Life Cycle Funds",
+      "sub_category": "Life Cycle Fund with Maturity of 10 Years",
+      "scheme_count": 3,
+      "observed_headers": [
+        "Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 10 Years)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_multi_asset_or_legacy_quarantine",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Life Cycle Funds - Life Cycle Fund with Maturity of 15 Years",
+      "family": "Life Cycle Funds",
+      "sub_category": "Life Cycle Fund with Maturity of 15 Years",
+      "scheme_count": 3,
+      "observed_headers": [
+        "Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 15 Years)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_multi_asset_or_legacy_quarantine",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Life Cycle Funds - Life Cycle Fund with Maturity of 30 Years",
+      "family": "Life Cycle Funds",
+      "sub_category": "Life Cycle Fund with Maturity of 30 Years",
+      "scheme_count": 4,
+      "observed_headers": [
+        "Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 30 Years)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_multi_asset_or_legacy_quarantine",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Life Cycle Funds - Life Cycle Fund with Maturity of 5 Years",
+      "family": "Life Cycle Funds",
+      "sub_category": "Life Cycle Fund with Maturity of 5 Years",
+      "scheme_count": 3,
+      "observed_headers": [
+        "Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 5 Years)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_multi_asset_or_legacy_quarantine",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Other Scheme - FoF Domestic",
+      "family": "Other Scheme",
+      "sub_category": "FoF Domestic",
+      "scheme_count": 337,
+      "observed_headers": [
+        "Open Ended Schemes(Other Scheme - FoF Domestic)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Other Scheme - FoF Overseas",
+      "family": "Other Scheme",
+      "sub_category": "FoF Overseas",
+      "scheme_count": 119,
+      "observed_headers": [
+        "Open Ended Schemes(Other Scheme - FoF Overseas)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Other Scheme - Gold ETF",
+      "family": "Other Scheme",
+      "sub_category": "Gold ETF",
+      "scheme_count": 15,
+      "observed_headers": [
+        "Open Ended Schemes(Other Scheme - Gold ETF)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Other Scheme - Index Funds",
+      "family": "Other Scheme",
+      "sub_category": "Index Funds",
+      "scheme_count": 1047,
+      "observed_headers": [
+        "Open Ended Schemes(Other Scheme - Index Funds)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Other Scheme - Other  ETFs",
+      "family": "Other Scheme",
+      "sub_category": "Other  ETFs",
+      "scheme_count": 208,
+      "observed_headers": [
+        "Open Ended Schemes(Other Scheme - Other  ETFs)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Overseas Fund of Funds - Fund of Funds investing overseas",
+      "family": "Overseas Fund of Funds",
+      "sub_category": "Fund of Funds investing overseas",
+      "scheme_count": 70,
+      "observed_headers": [
+        "Open Ended Schemes(Overseas Fund of Funds - Fund of Funds investing overseas)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_passive_name_rule_required",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Solution Oriented Scheme - Children’s Fund",
+      "family": "Solution Oriented Scheme",
+      "sub_category": "Children’s Fund",
+      "scheme_count": 31,
+      "observed_headers": [
+        "Open Ended Schemes(Solution Oriented Scheme - Children’s Fund)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_multi_asset_or_legacy_quarantine",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Solution Oriented Scheme - Retirement Fund",
+      "family": "Solution Oriented Scheme",
+      "sub_category": "Retirement Fund",
+      "scheme_count": 84,
+      "observed_headers": [
+        "Open Ended Schemes(Solution Oriented Scheme - Retirement Fund)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_multi_asset_or_legacy_quarantine",
+      "review_status": "REVIEW_REQUIRED"
+    },
+    {
+      "category_raw": "Solution Oriented Schemes ** - Retirement Fund",
+      "family": "Solution Oriented Schemes **",
+      "sub_category": "Retirement Fund",
+      "scheme_count": 63,
+      "observed_headers": [
+        "Open Ended Schemes(Solution Oriented Schemes ** - Retirement Fund)"
+      ],
+      "proposed_asset_class": "other",
+      "proposed_rule_id": "draft_multi_asset_or_legacy_quarantine",
+      "review_status": "REVIEW_REQUIRED"
+    }
+  ]
+}
