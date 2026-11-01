@@ -1,0 +1,29 @@
+.screener-heading {
+  min-height: 66px;
+  padding-block: 13px;
+}
+
+.screener-heading h1 {
+  margin: 0 0 3px;
+  font-size: 20px;
+  letter-spacing: -0.45px;
+}
+
+.screener-heading .subtitle {
+  font-size: 10px;
+}
+
+.summary-strip {
+  margin-bottom: 12px;
+}
+
+.summary-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+}

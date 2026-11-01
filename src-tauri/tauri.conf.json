@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "FundScope",
+  "version": "0.1.0",
+  "identifier": "in.fundscope.desktop",
+  "build": {
+    "beforeDevCommand": "corepack pnpm dev",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "corepack pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [{"title":"FundScope · Mutual fund research desk","width":1440,"height":900,"minWidth":1024,"minHeight":680,"resizable":true}],
+    "security": {"csp":"default-src 'self'; connect-src ipc: http://ipc.localhost https://portal.amfiindia.com https://api.mfapi.in; img-src 'self' asset: data:; style-src 'self' 'unsafe-inline';"}
+  },
+  "bundle": {"active":true,"targets":"all","category":"Finance","shortDescription":"A local-first mutual fund research desk for India.","longDescription":"A private, local-first desktop screener for Indian mutual funds."}
+}

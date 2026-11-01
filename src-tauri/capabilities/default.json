@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Main window access to local data and allow-listed public fund-data sources.",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-load",
+    {"identifier":"http:default","allow":[{"url":"https://portal.amfiindia.com/**"},{"url":"https://www.amfiindia.com/**"},{"url":"https://amfiindia.com/**"},{"url":"https://api.mfapi.in/**"}]}
+  ]
+}

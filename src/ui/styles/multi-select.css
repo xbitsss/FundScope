@@ -1,0 +1,22 @@
+.filter-card .multi-select {
+  min-height: 112px;
+  padding: 5px;
+}
+
+.filter-card .multi-select optgroup {
+  color: var(--text-muted);
+  font-style: normal;
+  font-weight: 650;
+}
+
+.filter-card .multi-select option {
+  color: var(--text);
+  padding: 3px 5px;
+}
+
+.multi-select-help {
+  display: block;
+  margin-top: 6px;
+  color: var(--text-muted);
+  font-size: 9px;
+}

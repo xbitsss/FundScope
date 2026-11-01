@@ -1,0 +1,7 @@
+.drawer-benchmark{display:flex;min-width:0;flex-direction:column;gap:3px}
+.drawer-benchmark small{font-size:8px;letter-spacing:.55px;color:var(--text-muted)}
+.drawer-benchmark b{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:12px}
+.drawer-benchmark span{font-size:9px;color:var(--warning)}
+.drawer-benchmark.benchmark-ready span{color:var(--positive)}
+.benchmark-badge{font-style:normal;font-size:8px;font-weight:600;color:var(--positive);background:color-mix(in srgb,var(--positive) 10%,var(--surface));border:1px solid color-mix(in srgb,var(--positive) 28%,var(--border));border-radius:999px;padding:2px 6px}
+@media(max-width:620px){.drawer-nav{grid-template-columns:1fr}.drawer-benchmark b{font-size:11px}}

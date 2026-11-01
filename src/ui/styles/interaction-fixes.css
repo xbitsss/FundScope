@@ -1,0 +1,3 @@
+.fund-drawer.closing {
+  animation: slideOut .18s ease-in forwards;
+}

@@ -1,0 +1,26 @@
+.screener-layout,
+.results-area {
+  min-height: 0;
+}
+
+.results-area {
+  overflow: hidden;
+}
+
+.table-shell {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 280px;
+  flex-direction: column;
+}
+
+.table-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.table-bottom {
+  flex-shrink: 0;
+}

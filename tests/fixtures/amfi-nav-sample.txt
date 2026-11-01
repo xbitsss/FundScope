@@ -1,0 +1,14 @@
+Scheme Code;ISIN Div Payout/ ISIN Growth;ISIN Div Reinvestment;Scheme Name;Plan;Option;Net Asset Value;Date
+
+Open Ended Schemes(Debt Scheme - Banking and PSU Fund)
+
+Franklin Templeton Mutual Fund
+
+129008;INF090I01KR8;-;Franklin India Banking & PSU Debt Fund;Direct Plan;Growth;25.3336;12-Oct-2026
+129006;INF090I01KO5;-;Franklin India Banking & PSU Debt Fund;Regular Plan;Growth;24.1582;12-Oct-2026
+129009;INF090I01KS6;INF090I01KT4;Franklin India Banking & PSU Debt Fund;Direct Plan;IDCW;11.4637;12-Oct-2026
+
+Open Ended Schemes(Debt Scheme - Corporate Bond Fund)
+
+ICICI Prudential Mutual Fund
+130947;INF109KA1I84;-;ICICI Prudential Corporate Bond Fund;;;14.9782;24-Apr-2020
