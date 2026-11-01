@@ -8,6 +8,9 @@ const manifest = JSON.parse(await readFile(join(dist, 'data', 'manifest.json'), 
 const files = [manifest.index, manifest.encryption?.canary, ...Object.values(manifest.histories ?? {})].filter(Boolean);
 let total = 0;
 for (const ref of files) {
+  if (!ref || typeof ref.path !== 'string' || ref.path.length === 0) {
+    throw new Error('Snapshot manifest contains an invalid file reference.');
+  }
   const path = resolve(dist, ref.path);
   const relativePath = relative(dist, path);
   if (relativePath === '..' || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
