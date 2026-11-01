@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './ui/App';
+import AppErrorBoundary from './ui/AppErrorBoundary';
 import WebSnapshotGate from './ui/WebSnapshotGate';
 import './ui/styles/tokens.css';
 import './ui/styles/table-sticky.css';
@@ -15,6 +16,7 @@ import './ui/styles/responsive-workspace.css';
 import './ui/styles/interaction-fixes.css';
 import './ui/styles/classification.css';
 import './ui/styles/snapshot-gate.css';
+import './ui/styles/mobile-ux.css';
 
 const app = import.meta.env.MODE === 'web' ? <WebSnapshotGate /> : <App />;
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode>{app}</React.StrictMode>);
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><AppErrorBoundary>{app}</AppErrorBoundary></React.StrictMode>);
