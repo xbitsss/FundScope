@@ -1,6 +1,6 @@
 import { readFile, stat } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { join, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 const dist = resolve(process.argv[2] ?? 'dist');
 const limit = Number(process.env.MAX_SITE_SIZE_MB ?? 950) * 1024 * 1024;
@@ -9,7 +9,10 @@ const files = [manifest.index, manifest.encryption?.canary, ...Object.values(man
 let total = 0;
 for (const ref of files) {
   const path = resolve(dist, ref.path);
-  if (!path.startsWith(`${dist}\`) && !path.startsWith(`${dist}/`)) throw new Error(`Snapshot reference escapes dist: ${ref.path}`);
+  const relativePath = relative(dist, path);
+  if (relativePath === '..' || relativePath.startsWith(`..${sep}`) || isAbsolute(relativePath)) {
+    throw new Error(`Snapshot reference escapes dist: ${ref.path}`);
+  }
   const bytes = await readFile(path); const actual = createHash('sha256').update(bytes).digest('hex');
   if (bytes.byteLength !== ref.encryptedBytes || actual !== ref.sha256) throw new Error(`Snapshot file integrity mismatch: ${ref.path}`);
   total += bytes.byteLength;
