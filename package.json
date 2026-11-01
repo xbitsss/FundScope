@@ -7,8 +7,12 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
+    "build:web": "vite build --mode web && node scripts/copy-snapshot.mjs",
     "check": "tsc -b --pretty false && vite build",
     "test": "vitest run",
+    "secret-scan": "node scripts/secret-scan.mjs",
+    "etl:bundle": "vite build --config vite.etl.config.ts",
+    "etl:run": "node .data/etl-build/cli.mjs",
     "benchmarks:discover": "node scripts/discover-benchmarks.mjs",
     "classify:report": "node scripts/classify-report.mjs",
     "classify:audit-sample": "node scripts/classify-audit-sample.mjs",
@@ -19,6 +23,7 @@
     "@tauri-apps/api": "2.12.3",
     "@tauri-apps/plugin-http": "2.8.2",
     "@tauri-apps/plugin-sql": "2.5.0",
+    "better-sqlite3": "13.0.3",
     "lucide-react": "0.468.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
@@ -28,9 +33,11 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.12.2",
+    "@types/node": "26.6.6",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
     "@vitejs/plugin-react": "5.2.0",
+    "dotenv": "18.0.9",
     "typescript": "5.9.3",
     "vite": "7.3.7",
     "vitest": "3.2.7"

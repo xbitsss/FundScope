@@ -1,3 +1,9 @@
-# Local disclosure overrides
+Place audited, code-keyed disclosure CSV files in this folder to override AMFI AUM or TER values during nightly refresh.
 
-Edit `public/config/local_overrides/disclosures.csv` with `scheme_code,aum_cr,ter_pct` columns. Use exact AMFI scheme codes; name-only rows are deliberately ignored because they cannot safely distinguish plans. Leave either value blank when you do not have an audited override for that field.
+Use these headers:
+
+```csv
+scheme_code,aum_cr,ter_pct
+```
+
+Rows that do not match a current AMFI scheme code are ignored. Local override values are clearly marked as `LOCAL_OVERRIDE` in FundScope. Do not put credentials or personal information in these files.

@@ -1,0 +1,27 @@
+name: Keep scheduled refresh active
+
+on:
+  schedule:
+    - cron: '23 2 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - name: Record scheduled maintenance activity
+        run: |
+          set -euo pipefail
+          mkdir -p automation
+          date -u +'%Y-%m-%dT%H:%M:%SZ' > automation/keepalive.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add automation/keepalive.txt
+          git commit -m 'chore: keep scheduled data refresh active' || exit 0
+          git push origin main

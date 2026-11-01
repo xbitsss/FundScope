@@ -166,6 +166,17 @@ export async function saveFunds(funds:Fund[],onProgress?:(saved:number,total:num
     await new Promise<void>((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});
   }
 }
+/** Replace the local catalogue with a verified snapshot while preserving user settings and audit stores. */
+export async function replaceFunds(funds:Fund[]):Promise<void>{
+  if(isTauri()){
+    const db=await openDb();
+    await db.execute('DELETE FROM schemes');
+  }else{
+    const db=await browserDb();const tx=db.transaction('funds','readwrite');tx.objectStore('funds').clear();
+    await new Promise<void>((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});
+  }
+  await saveFunds(funds);
+}
 const benchmarkGatedMetrics=['beta','r_squared','jensen_alpha','treynor','information_ratio','tracking_error','upside_capture','downside_capture','benchmark_outperformance_ratio'];
 function enforceClassificationMetricGate(fund:Fund):Fund{
   if(fund.classStatus!=='CONFLICT'&&fund.classStatus!=='CONFLICT_STALE'&&fund.assetClass!=='other')return fund;

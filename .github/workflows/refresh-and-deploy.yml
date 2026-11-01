@@ -1,0 +1,104 @@
+name: Refresh data and deploy FundScope
+
+on:
+  schedule:
+    - cron: '15 1 * * *'
+  workflow_dispatch:
+    inputs:
+      code_only:
+        description: Deploy the app using the latest encrypted snapshot without refreshing sources
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+
+concurrency:
+  group: fundscope-pages-production
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      HOSTING_TARGET: github-pages
+      PUBLIC_BASE_PATH: /FundScope/
+      DATA_RELEASE_TAG: data-latest
+      MAX_SITE_SIZE_MB: '950'
+      MAX_DB_SIZE_MB: '1800'
+      ETL_TIME_BUDGET_MINUTES: '45'
+      ETL_BATCH_SIZE: '3000'
+      HTTP_CONCURRENCY: '3'
+      HTTP_INTERVAL_MS: '150'
+      HTTP_TIMEOUT_MS: '20000'
+      HTTP_MAX_RETRIES: '4'
+      RISK_FREE_RATE: '6.5'
+      GITHUB_REPOSITORY_VISIBILITY: public
+      ENCRYPT_DATA: ${{ (github.event_name == 'workflow_dispatch' && inputs.code_only) && 'false' || 'true' }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 12.11.2
+      - name: Verify the repository is public and encryption is configured
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DATA_PASSPHRASE: ${{ secrets.DATA_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          visibility="$(curl --fail --silent --show-error -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/${GITHUB_REPOSITORY}" | jq -r '.visibility')"
+          if [[ "$visibility" != "public" ]]; then
+            echo '::error::FundScope Pages hosting requires the repository to be public.'
+            exit 1
+          fi
+          if [[ "${{ github.event_name }}" != 'workflow_dispatch' || "${{ inputs.code_only }}" != 'true' ]]; then
+            if [[ -z "${DATA_PASSPHRASE}" || ${#DATA_PASSPHRASE} -lt 16 ]]; then
+              echo '::error::Add DATA_PASSPHRASE (at least 16 characters) in Settings > Secrets and variables > Actions.'
+              exit 1
+            fi
+          fi
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Type-check and build the desktop frontend
+        run: pnpm check
+      - name: Build Node ETL bundle
+        run: pnpm etl:bundle
+      - name: Restore the last snapshot for code-only deployment
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.code_only }}
+        env:
+          ENCRYPT_DATA: 'false'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PUBLIC_BASE_PATH: /FundScope/
+          DATA_RELEASE_TAG: data-latest
+        run: node .data/etl-build/cli.mjs --restore-snapshot
+      - name: Refresh public sources, SQLite, and encrypted snapshot
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.code_only) }}
+        env:
+          DATA_PASSPHRASE: ${{ secrets.DATA_PASSPHRASE }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REPOSITORY_VISIBILITY: public
+        run: pnpm etl:run
+      - name: Build the static web app
+        run: pnpm build:web
+      - name: Scan source and published output for credentials
+        run: pnpm secret-scan
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

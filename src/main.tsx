@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './ui/App';
+import WebSnapshotGate from './ui/WebSnapshotGate';
 import './ui/styles/tokens.css';
 import './ui/styles/table-sticky.css';
 import './ui/styles/table-scroll.css';
@@ -13,5 +14,7 @@ import './ui/styles/benchmark.css';
 import './ui/styles/responsive-workspace.css';
 import './ui/styles/interaction-fixes.css';
 import './ui/styles/classification.css';
+import './ui/styles/snapshot-gate.css';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);
+const app = import.meta.env.MODE === 'web' ? <WebSnapshotGate /> : <App />;
+ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode>{app}</React.StrictMode>);

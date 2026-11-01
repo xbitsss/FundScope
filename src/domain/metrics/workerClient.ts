@@ -11,9 +11,9 @@ const computeLocally=(funds:Fund[],riskWindow:number,riskFreeRate:number)=>funds
   return applyLocalMetricBundle(fund,computeMetricBundle(fund,riskWindow,riskFreeRate));
 });
 
-export async function computeFundsInWorker(funds:Fund[],riskWindow:number,riskFreeRate:number):Promise<Fund[]>{
+export async function computeFundsInWorker(funds:Fund[],riskWindow:number,riskFreeRate:number,options:{fetchBenchmarkSeries?:boolean}={}):Promise<Fund[]>{
   const prepared=funds.map(fillBlankSchemeDimensions);
-  const {funds:withBenchmarks,seriesById}=await attachBenchmarkHistories(prepared);
+  const {funds:withBenchmarks,seriesById}=options.fetchBenchmarkSeries===false?{funds:prepared,seriesById:{}}:await attachBenchmarkHistories(prepared);
   if(typeof Worker==='undefined'||prepared.length<100)return applyClassificationPlausibility(applyRelativeMetrics(computeLocally(withBenchmarks,riskWindow,riskFreeRate).map(markMissingDisclosureMetrics).map(applySebiHoldingHeuristics),riskWindow,riskFreeRate,seriesById),seriesById).filter(fund=>prepared.some(original=>original.code===fund.code));
   return new Promise((resolve,reject)=>{
     const worker=new Worker(new URL('./metrics.worker.ts',import.meta.url),{type:'module'});

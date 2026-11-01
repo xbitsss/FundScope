@@ -24,6 +24,9 @@ describe('NAV metric calculations',()=>{
     const bundle=computeMetricBundle({history:[{date:10_000,nav:100}],nav:100,navDate:10_000});
     expect(bundle.metrics.absolute_return_3m).toBeNull();
     expect(bundle.reasons.absolute_return_3m).toBe('INSUFFICIENT_HISTORY');
+    expect(bundle.metrics.scheme_vintage_years).toBeNull();
+    expect(bundle.reasons.scheme_vintage_years).toBe('INSUFFICIENT_HISTORY');
+    expect(bundle.metrics.cagr_1y).toBeNull();
   });
   it('computes the arithmetic mean of observed rolling 3Y CAGRs',()=>{
     const history=Array.from({length:1_500},(_,index)=>({date:10_000+index,nav:100*Math.pow(1.1,index/365.2425)}));

@@ -26,7 +26,7 @@ function rollingReturns(series:NavPoint[],years:number):number[]{
 
 export function computeMetricBundle(fund:Pick<Fund,'history'|'nav'|'navDate'>,riskWindow=3,riskFreeRate=6.5,hurdleRate=riskFreeRate):MetricBundle{
   const series=[...fund.history].sort((a,b)=>a.date-b.date);const out:MetricBundle={metrics:{},reasons:{}};const latest=series.at(-1);
-  if(!latest){for(const id of ['scheme_vintage_years','absolute_return_3m','absolute_return_6m','rolling_3y_average_return',...riskIds])nullMetric(out,id,'INSUFFICIENT_HISTORY');return out;}
+  if(!latest||series.length<2){for(const id of ['scheme_vintage_years','absolute_return_3m','absolute_return_6m','cagr_1y','cagr_3y','cagr_5y','cagr_10y','rolling_3y_average_return','rolling_3y_consistency','rolling_5y_consistency',...riskIds])nullMetric(out,id,'INSUFFICIENT_HISTORY');return out;}
   out.metrics.scheme_vintage_years=(latest.date-series[0]!.date)/365.2425;
   const atYears=(years:number):number|null=>{const id=`cagr_${years}y`;const start=nearestObserved(series,latest.date-years*365.2425);if(!start||latest.date-start.date<years*360||start.nav<=0){nullMetric(out,id,'INSUFFICIENT_HISTORY');return null;}return (Math.pow(latest.nav/start.nav,365.2425/(latest.date-start.date))-1)*100;};
   for(const years of [1,3,5,10])out.metrics[`cagr_${years}y`]=atYears(years);
