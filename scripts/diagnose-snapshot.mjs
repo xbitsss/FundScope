@@ -76,6 +76,7 @@ if (process.env.DATA_PASSPHRASE) {
 }
 
 const historyRefs = Object.entries(manifest.histories);
+const locked = funds.length === 0;
 const sizes = historyRefs.map(([, ref]) => ref.encryptedBytes);
 const all = funds.length;
 const open = funds.filter(fund => fund.structure === 'open');
@@ -105,14 +106,16 @@ const lines = [
   '',
   '## Decryption', '', decryptionNote,
   ...(navSamples.length ? ['', '| Scheme | Sample |', '| --- | --- |', table(navSamples)] : []),
-  '', '## Histograms', '',
-  ...['structure', 'plan', 'option', 'assetClass', 'classStatus'].flatMap(field => ['', `### ${field}`, '', '| Value | Count |', '| --- | ---: |', table(histogram(funds, fund => fund[field]))]),
-  '', '## Universe funnel', '', '| Step | Remaining | Removed |', '| --- | ---: | ---: |',
-  `| All | ${all} | 0 |`, `| Open-ended | ${open.length} | ${all - open.length} |`, `| Direct | ${direct.length} | ${open.length - direct.length} |`, `| Growth non-bonus | ${growth.length} | ${direct.length - growth.length} |`,
-  '', '## History coverage', '', `- All funds: ${all ? Math.round((all - missingRefs.length) / all * 1000) / 10 : 0}% referenced`, `- Direct · Growth · Open: ${growth.length ? Math.round(growth.filter(fund => manifest.histories[String(fund.code)]).length / growth.length * 1000) / 10 : 0}% referenced`, `- First 20 codes without history refs: ${missingRefs.slice(0, 20).join(', ') || 'none'}`,
-  '', '## Category audit', '', '| Sub-category | Total | Direct · Growth · Open | Flag |', '| --- | ---: | ---: | --- |',
-  ...[...categoryAudit.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([name, item]) => `| ${name || '(empty)'} | ${item.total} | ${item.universe} | ${item.universe === 0 ? 'no default-universe funds' : ''} |`),
-  '', `Near-duplicate labels: ${duplicateLabels.length ? duplicateLabels.join(', ') : 'none'}`,
+  ...(locked ? ['', '## Detailed diagnosis', '', 'Index decryption was not run. Set `DATA_PASSPHRASE` to produce histograms, funnel counts, category audits, and decrypted NAV samples. Manifest-level encrypted file facts above are still verified.'] : [
+    '', '## Histograms', '',
+    ...['structure', 'plan', 'option', 'assetClass', 'classStatus'].flatMap(field => ['', `### ${field}`, '', '| Value | Count |', '| --- | ---: |', table(histogram(funds, fund => fund[field]))]),
+    '', '## Universe funnel', '', '| Step | Remaining | Removed |', '| --- | ---: | ---: |',
+    `| All | ${all} | 0 |`, `| Open-ended | ${open.length} | ${all - open.length} |`, `| Direct | ${direct.length} | ${open.length - direct.length} |`, `| Growth non-bonus | ${growth.length} | ${direct.length - growth.length} |`,
+    '', '## History coverage', '', `- All funds: ${all ? Math.round((all - missingRefs.length) / all * 1000) / 10 : 0}% referenced`, `- Direct · Growth · Open: ${growth.length ? Math.round(growth.filter(fund => manifest.histories[String(fund.code)]).length / growth.length * 1000) / 10 : 0}% referenced`, `- First 20 codes without history refs: ${missingRefs.slice(0, 20).join(', ') || 'none'}`,
+    '', '## Category audit', '', '| Sub-category | Total | Direct · Growth · Open | Flag |', '| --- | ---: | ---: | --- |',
+    ...[...categoryAudit.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([name, item]) => `| ${name || '(empty)'} | ${item.total} | ${item.universe} | ${item.universe === 0 ? 'no default-universe funds' : ''} |`),
+    '', `Near-duplicate labels: ${duplicateLabels.length ? duplicateLabels.join(', ') : 'none'}`,
+  ]),
 ];
 await mkdir(dirname(destination), { recursive: true });
 await writeFile(destination, `${lines.join('\n')}\n`);

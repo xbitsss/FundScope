@@ -12,6 +12,7 @@
     "test": "vitest run",
     "secret-scan": "node scripts/secret-scan.mjs",
     "diagnose:snapshot": "node scripts/diagnose-snapshot.mjs",
+    "verify:dist": "node scripts/verify-dist.mjs",
     "etl:bundle": "vite build --config vite.etl.config.ts",
     "etl:run": "node .data/etl-build/cli.mjs",
     "benchmarks:discover": "node scripts/discover-benchmarks.mjs",

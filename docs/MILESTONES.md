@@ -18,6 +18,10 @@
 - **Verified:** AMFI parser tests pass; refresh failure preserves cached rows.
 - **Risk:** There is no opt-in continuous full-universe queue, retry/backoff stage machine, source detail table for MFapi failures, or real in-app backfill measurement.
 
+### One-shot repair update · 1 November 2026
+
+- Added persisted history status fields, deterministic retry/backoff queue ordering, no-starvation ordering, and a >20% attempted-fetch quality gate. The queue is unit-tested; a complete nightly coverage run still requires the GitHub Actions data secret and live MFapi responses.
+
 ## Milestone 3 · Metrics — partial
 
 - **Built:** Central registry, NAV-only CAGR, rolling consistency, configurable 1Y/3Y/5Y risk windows, and risk-adjusted calculations with nulls for sparse histories; benchmark-dependent inputs remain unavailable.
@@ -30,11 +34,19 @@
 - **Verified:** Frontend check passes. Scoring core is pure and shared by the Screener and Score Lab.
 - **Risk:** Dataset performance budgets, facets/histograms, comprehensive dimensions/columns, score-model persistence and full missing-value policies are outstanding.
 
+### One-shot repair update · 1 November 2026
+
+- Facet counts, structured filter state, v2 saved screens, disabled zero-count options and the Open/Closed/Interval control are now implemented and tested. The remaining risk is a production measurement of full-universe latency.
+
 ## Milestone 5 · Screener — partial
 
 - **Built:** Filter rail, metric picker, saved-screen local persistence, freshness pill, sortable results, density setting, CSV export and empty/error states.
 - **Verified:** Vite production build passes.
 - **Risk:** Virtualization, undo actions, customizable columns, histogram controls and keyboard shortcuts are outstanding. The current table has independent horizontal/vertical scrolling and sticky identification columns.
+
+### One-shot repair update · 1 November 2026
+
+- Phone widths now use card results, a bottom tab bar, a full-width filter sheet and hidden page scrollbars. Desktop table virtualization remains the primary desktop result path.
 
 ## Milestone 6 · Detail and Compare — partial
 

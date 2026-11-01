@@ -3,6 +3,7 @@ name: Refresh data and deploy FundScope
 on:
   schedule:
     - cron: '15 1 * * *'
+    - cron: '15 13 * * *'
   workflow_dispatch:
     inputs:
       code_only:
@@ -94,6 +95,8 @@ jobs:
         run: pnpm etl:run
       - name: Build the static web app
         run: pnpm build:web
+      - name: Verify snapshot references and size
+        run: pnpm verify:dist
       - name: Scan source and published output for credentials
         run: pnpm secret-scan
       - uses: actions/upload-pages-artifact@v5

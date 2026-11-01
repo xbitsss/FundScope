@@ -14,6 +14,7 @@ import { previousConflictFrom, reconcileClassification } from '../src/domain/tax
 import { applySebiHoldingHeuristics } from '../src/domain/disclosures/sebiHeuristics.ts';
 import { benchmarkConfig } from '../src/config/benchmarks.ts';
 import { decodeUtf8, decryptSnapshotFile, encodeUtf8, gunzipBytes, gzipBytes, encryptSnapshotFile, deriveSnapshotKey, randomBytes, toBase64, sha256Hex } from '../src/adapters/crypto/snapshotCrypto.ts';
+import { nextRetryAt, orderHistoryQueue } from './historyQueue.mjs';
 
 globalThis.crypto ??= webcrypto;
 const env = parseEnv();
@@ -175,8 +176,10 @@ function mergeCatalog(previous, incoming) {
       metricFlags: { ...saved.metricFlags },
       metricProvenance: { ...saved.metricProvenance },
       metricAsOf: { ...saved.metricAsOf },
-      classStatus: saved.classStatus && saved.category === fund.category ? saved.classStatus : fund.classStatus,
-      classDetail: saved.classStatus && saved.category === fund.category ? saved.classDetail : fund.classDetail,
+      // Reconcile fresh S1/S2/S3 observations on every catalog refresh. Only an
+      // explicit human review is allowed to keep a prior status/detail.
+      classStatus: saved.classDetail?.review ? saved.classStatus : classification.status,
+      classDetail: saved.classDetail?.review ? saved.classDetail : classification.detail,
     };
     return result;
   });
@@ -389,10 +392,12 @@ async function buildSnapshot(funds, sourceStatus, disclosures) {
   }
   const manifest = {
     schema_version: 1,
+    snapshot_id: snapshotId,
     generated_at: new Date().toISOString(),
     data_as_of: sourceStatus.dataAsOf,
     fund_count: funds.length,
     history_count: Object.keys(refs).length,
+    coverage: (() => { const preferred = funds.filter((fund) => fund.structure === 'open' && fund.plan === 'Direct' && /growth/i.test(fund.option ?? '') && !/bonus/i.test(fund.option ?? '')); const withHistory = (items) => items.filter((fund) => fund.history?.length).length; const failed = funds.filter((fund) => fund.historyStatus === 'failed').length; const pending = funds.filter((fund) => !fund.history?.length && fund.historyStatus !== 'failed').length; return { open_direct_growth: { total: preferred.length, with_history: withHistory(preferred) }, all: { total: funds.length, with_history: withHistory(funds) }, failed, pending, last_run: new Date().toISOString() }; })(),
     disclosures,
     encryption: { algorithm: 'AES-256-GCM', kdf: 'PBKDF2-SHA256', iterations, salt: toBase64(salt), canary },
     index,
@@ -486,8 +491,11 @@ async function main() {
 
   await pullDatabase();
   const database = new NodeSqliteRepository(dbPath).initialize();
+  let qualityFailure = null;
   try {
     let funds = database.getFunds();
+    const storedStatuses = new Map(database.getHistoryStatuses().map((row) => [row.code, row]));
+    funds = funds.map((fund) => { const status = storedStatuses.get(fund.code); return status ? { ...fund, historyStatus: status.status, historyAttempts: status.attempts, historyLastError: status.lastError ?? undefined, historyNextRetryAt: status.nextRetryAt ?? undefined, historyFetchedAt: status.fetchedAt ?? fund.historyFetchedAt } : fund; });
     logger(`Database loaded: ${funds.length.toLocaleString('en-IN')} schemes.`);
     const response = await request('https://portal.amfiindia.com/spages/NAVAll.txt', {}, 'AMFI NAVAll');
     const parsed = parseAmfiNavAllFile(await response.text());
@@ -500,9 +508,7 @@ async function main() {
     database.setSourceState('amfi_nav', { fetchedAt, dataAsOf: asOf * 86_400_000, status: 'ok', detail: `${funds.length.toLocaleString('en-IN')} schemes loaded from AMFI NAVAll.` });
     logger(`AMFI catalog refreshed: ${funds.length.toLocaleString('en-IN')} schemes, as of ${new Date(asOf * 86_400_000).toISOString().slice(0, 10)}.`);
 
-    const todo = funds.filter((fund) => !fund.history?.length || !fund.historyFetchedAt || fetchedAt - fund.historyFetchedAt > 30 * 86_400_000)
-      .sort((a, b) => Number(!(a.structure === 'open' && a.plan === 'Direct' && /growth/i.test(a.option) && !/bonus/i.test(a.option))) - Number(!(b.structure === 'open' && b.plan === 'Direct' && /growth/i.test(b.option) && !/bonus/i.test(b.option))) || Number(Boolean(a.history?.length)) - Number(Boolean(b.history?.length)) || (a.historyFetchedAt ?? 0) - (b.historyFetchedAt ?? 0) || b.navDate - a.navDate)
-      .slice(0, env.ETL_BATCH_SIZE);
+    const todo = orderHistoryQueue(funds, fetchedAt, env.ETL_BATCH_SIZE);
     let complete = 0; let failed = 0;
     const updates = new Map();
     await mapWithConcurrency(todo, env.HTTP_CONCURRENCY, async (fund) => {
@@ -526,10 +532,15 @@ async function main() {
         }) : null;
         // AMFI's NAV header is the sole sub-category source. MFapi's category is
         // retained as the S2 classification signal but must never relabel a fund.
-        updates.set(fund.code, { ...fund, history, historyFetchedAt, ...(classification ? { assetClass: classification.assetClass, classRuleId: classification.ruleId, classStatus: classification.status, classDetail: classification.detail } : {}) });
+        const status = { attempts: 0, fetchedAt: historyFetchedAt, lastError: null, nextRetryAt: null };
+        database.setHistoryStatus(fund.code, 'ok', status);
+        updates.set(fund.code, { ...fund, history, historyFetchedAt, historyStatus: 'ok', historyAttempts: 0, historyLastError: undefined, historyNextRetryAt: undefined, ...(classification ? { assetClass: classification.assetClass, classRuleId: classification.ruleId, classStatus: classification.status, classDetail: classification.detail } : {}) });
       } catch (error) {
         failed++;
-        logger(`History fetch failed for scheme ${fund.code}: ${error instanceof Error ? error.message : 'request failed'}`);
+        const attempts = (fund.historyAttempts ?? 0) + 1; const message = error instanceof Error ? error.message : 'request failed';
+        database.setHistoryStatus(fund.code, 'failed', { attempts, lastError: message, nextRetryAt: nextRetryAt(attempts, Date.now()), fetchedAt: fund.historyFetchedAt ?? null });
+        updates.set(fund.code, { ...fund, historyStatus: 'failed', historyAttempts: attempts, historyLastError: message, historyNextRetryAt: nextRetryAt(attempts, Date.now()) });
+        logger(`History fetch failed for scheme ${fund.code}: ${message}`);
       }
       complete++;
       if (complete % 100 === 0) logger(`History batch: ${complete.toLocaleString('en-IN')} / ${todo.length.toLocaleString('en-IN')} processed, ${updates.size.toLocaleString('en-IN')} updated.`);
@@ -537,6 +548,7 @@ async function main() {
     funds = funds.map((fund) => updates.get(fund.code) ?? fund);
     if (updates.size) database.saveFunds([...updates.values()]);
     logger(`History batch complete: ${updates.size.toLocaleString('en-IN')} loaded, ${failed.toLocaleString('en-IN')} failed, ${funds.filter((fund) => fund.history?.length).length.toLocaleString('en-IN')} total schemes with NAV history.`);
+    if ((todo.length && updates.size === 0) || (todo.length && failed / todo.length > 0.2)) qualityFailure = `History coverage quality gate failed: ${failed}/${todo.length} attempted fetches failed.`;
 
     let aumMessage = 'AAUM refresh unavailable'; let terMessage = 'TER refresh unavailable';
     try { const aum = await ingestAum(funds); funds = aum.funds; aumMessage = `${aum.period} · ${aum.records.toLocaleString('en-IN')} scheme AAUM values`; logger(`AMFI AAUM: ${aumMessage}.`); }
@@ -562,6 +574,7 @@ async function main() {
     await encryptDatabase();
     await publishRelease();
     logger(`Refresh finished in ${Math.round((Date.now() - runStarted) / 1000)} seconds.`);
+    if (qualityFailure) fail(qualityFailure);
   } finally {
     database.close();
   }

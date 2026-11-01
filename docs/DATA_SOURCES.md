@@ -63,6 +63,12 @@ The read-only discovery run is recorded in [classification-discovery-c0.md](clas
 
 ## Taxonomy v2 implementation (1 November 2026)
 
+## Snapshot coverage and history cache (1 November 2026)
+
+- The encrypted manifest now carries an aggregate-only `coverage` object for the Direct + Growth + Open universe and the full catalog, plus failed/pending counts and a run timestamp. It contains no secret or fund-level history payload.
+- The browser keeps loaded NAV series in IndexedDB with a snapshot ID and an in-memory cache. A new snapshot invalidates the old series; a reload on the same snapshot preserves them.
+- Missing references are reported as `not in snapshot yet`; integrity/decryption failures are reported separately and are retryable. The browser does not calculate replacement metrics from loaded history, so ETL metrics and their reason codes remain authoritative.
+
 The production classifier now uses versioned AMFI family/subcategory rules, an explicit passive-family allowlist, and passive candidate patterns. Unknown categories and ambiguous passive candidates stay `other`. The AMFI parser now persists `N.A.` NAV rows as master records and checks feed shape before replacing the cached catalog. Classification provenance, source disagreement, mapping history and SID audit results are stored locally. See [CLASSIFICATION.md](CLASSIFICATION.md) for rules, status behavior, migration and audit commands.
 
 AMFI TER ingestion now walks all response pages and attaches S3 category data only after a unique AMC plus normalized scheme-family match. Its observation timestamp is the date published in `TER_Date`; the separate source mapping record retains the local match time. This improves row coverage but does not turn the family-name join into a verified scheme-code contract. Coverage and unmatched rows must be monitored through the local diagnostics.

@@ -19,6 +19,7 @@ export class NodeSqliteRepository {
       CREATE TABLE IF NOT EXISTS schemes (scheme_code INTEGER PRIMARY KEY, payload TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS scheme_master (scheme_code INTEGER PRIMARY KEY, payload TEXT NOT NULL, first_seen_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS nav (scheme_code INTEGER NOT NULL, date INTEGER NOT NULL, nav REAL NOT NULL, PRIMARY KEY(scheme_code,date)) WITHOUT ROWID;
+      CREATE TABLE IF NOT EXISTS history_status (scheme_code INTEGER PRIMARY KEY, status TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, last_error TEXT, next_retry_at INTEGER, fetched_at INTEGER);
       CREATE TABLE IF NOT EXISTS benchmark_series (scheme_code INTEGER PRIMARY KEY, scheme_name TEXT NOT NULL, fetched_at INTEGER NOT NULL, history TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS source_state (source_id TEXT PRIMARY KEY, fetched_at INTEGER, data_as_of INTEGER, status TEXT NOT NULL, detail TEXT);
       CREATE TABLE IF NOT EXISTS app_state (state_key TEXT PRIMARY KEY, payload TEXT NOT NULL);
@@ -46,6 +47,16 @@ export class NodeSqliteRepository {
       for (const fund of records) upsert.run(fund.code, JSON.stringify(fund));
     });
     for (let start = 0; start < funds.length; start += 200) transaction(funds.slice(start, start + 200));
+  }
+
+  getHistoryStatuses() {
+    return this.db.prepare('SELECT scheme_code AS code,status,attempts,last_error AS lastError,next_retry_at AS nextRetryAt,fetched_at AS fetchedAt FROM history_status').all();
+  }
+
+  setHistoryStatus(code, status, values = {}) {
+    this.db.prepare(`INSERT INTO history_status(scheme_code,status,attempts,last_error,next_retry_at,fetched_at) VALUES(?,?,?,?,?,?)
+      ON CONFLICT(scheme_code) DO UPDATE SET status=excluded.status,attempts=excluded.attempts,last_error=excluded.last_error,next_retry_at=excluded.next_retry_at,fetched_at=excluded.fetched_at`)
+      .run(code, status, values.attempts ?? 0, values.lastError ?? null, values.nextRetryAt ?? null, values.fetchedAt ?? null);
   }
 
   saveSchemeMasterRows(rows, funds) {
