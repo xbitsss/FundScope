@@ -20,7 +20,7 @@ export default function WebSnapshotGate() {
     try {
       const snapshot = await unlockSnapshot(passphrase);
       await initializeRepository();
-      await replaceFunds(snapshot.funds);
+      await replaceFunds(snapshot.funds, snapshot.manifest.snapshot_id ?? snapshot.manifest.generated_at);
       const fetchedAt = Date.parse(snapshot.manifest.generated_at);
       await setSourceStatus({
         fetchedAt: Number.isFinite(fetchedAt) ? fetchedAt : null,

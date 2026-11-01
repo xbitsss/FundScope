@@ -8,6 +8,7 @@ export interface SnapshotFileRef {
 
 export interface SnapshotManifest {
   schema_version: 1;
+  snapshot_id?: string;
   generated_at: string;
   data_as_of: number | null;
   fund_count: number;
@@ -22,4 +23,5 @@ export interface SnapshotManifest {
   };
   index: SnapshotFileRef;
   histories: Record<string, SnapshotFileRef>;
+  coverage?: { open_direct_growth?: { total:number; with_history:number }; all?: { total:number; with_history:number }; failed?:number; pending?:number; last_run?:string };
 }

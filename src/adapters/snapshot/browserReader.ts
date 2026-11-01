@@ -5,6 +5,8 @@ import { decodeUtf8, decryptSnapshotFile, deriveSnapshotKey, fromBase64, gunzipB
 const CANARY_TEXT = 'FundScope snapshot canary:v1';
 interface UnlockedSnapshot { manifest: SnapshotManifest; key: CryptoKey; baseUrl: string }
 let unlocked: UnlockedSnapshot | null = null;
+const historyCache = new Map<string, Map<number, NavPoint[]>>();
+export interface HistoryLoadResult { loaded:Map<number,NavPoint[]>; unavailable:number[]; failed:Array<{code:number;reason:string}> }
 
 function normalizeBaseUrl(baseUrl: string): string {
   const base = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
@@ -68,9 +70,12 @@ export async function unlockSnapshot(passphrase: string, baseUrl = import.meta.e
   return { manifest, funds };
 }
 
-export async function loadSnapshotHistories(codes: number[], onProgress?: (done: number, total: number) => void): Promise<Map<number, NavPoint[]>> {
+export async function loadSnapshotHistories(codes: number[], onProgress?: (done: number, total: number) => void): Promise<HistoryLoadResult> {
   if (!unlocked) throw new Error('Unlock the FundScope snapshot before loading fund history.');
   const result = new Map<number, NavPoint[]>();
+  const unavailable:number[]=[]; const failed:Array<{code:number;reason:string}>=[];
+  const snapshotId=unlocked.manifest.snapshot_id??unlocked.manifest.generated_at;
+  const cached=historyCache.get(snapshotId)??new Map<number,NavPoint[]>(); historyCache.set(snapshotId,cached);
   let next = 0; let done = 0;
   const worker = async () => {
     while (true) {
@@ -78,21 +83,22 @@ export async function loadSnapshotHistories(codes: number[], onProgress?: (done:
       if (index >= codes.length) return;
       const code = codes[index]!;
       const ref = unlocked!.manifest.histories[String(code)];
-      if (ref) {
-        const encrypted = await fetchFile(unlocked!.baseUrl, ref);
-        const compressed = await decryptSnapshotFile(unlocked!.key, ref.path, encrypted);
-        const history = JSON.parse(decodeUtf8(await gunzipBytes(compressed))) as unknown;
-        if (!Array.isArray(history) || history.some((point) => !point || !Number.isInteger(point.date) || !Number.isFinite(point.nav))) {
-          throw new Error(`Snapshot history for scheme ${code} is malformed.`);
-        }
-        result.set(code, history as NavPoint[]);
+      if (!ref) unavailable.push(code);
+      else if(cached.has(code)) result.set(code,cached.get(code)!);
+      else {
+        try {
+          let error:unknown;
+          for(let attempt=0;attempt<2;attempt++){try{const encrypted=await fetchFile(unlocked!.baseUrl,ref);const compressed=await decryptSnapshotFile(unlocked!.key,ref.path,encrypted);const history=JSON.parse(decodeUtf8(await gunzipBytes(compressed))) as unknown;if(!Array.isArray(history)||history.some((point)=>!point||!Number.isInteger(point.date)||!Number.isFinite(point.nav)))throw new Error(`Snapshot history for scheme ${code} is malformed.`);cached.set(code,history as NavPoint[]);result.set(code,history as NavPoint[]);error=undefined;break;}catch(cause){error=cause;if(attempt===0)await new Promise(resolve=>setTimeout(resolve,100));}}
+          if(error)failed.push({code,reason:error instanceof Error?error.message:'History could not be loaded.'});
+        } catch(cause){failed.push({code,reason:cause instanceof Error?cause.message:'History could not be loaded.'});}
       }
       done++;
       onProgress?.(done, codes.length);
     }
   };
   await Promise.all(Array.from({ length: Math.min(4, codes.length) }, worker));
-  return result;
+  Object.defineProperties(result,{loaded:{value:result,enumerable:false},unavailable:{value:unavailable,enumerable:false},failed:{value:failed,enumerable:false}});
+  return result as unknown as HistoryLoadResult;
 }
 
 export function getUnlockedSnapshotManifest(): SnapshotManifest | null {

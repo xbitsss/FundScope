@@ -524,7 +524,9 @@ async function main() {
           previousConflict: previousConflictFrom(fund.classDetail, fund.classStatus),
           previousReview: fund.classDetail?.review,
         }) : null;
-        updates.set(fund.code, { ...fund, history, historyFetchedAt, ...(classification ? { assetClass: classification.assetClass, classRuleId: classification.ruleId, classStatus: classification.status, classDetail: classification.detail, subCategory: classification.subCategory } : {}) });
+        // AMFI's NAV header is the sole sub-category source. MFapi's category is
+        // retained as the S2 classification signal but must never relabel a fund.
+        updates.set(fund.code, { ...fund, history, historyFetchedAt, ...(classification ? { assetClass: classification.assetClass, classRuleId: classification.ruleId, classStatus: classification.status, classDetail: classification.detail } : {}) });
       } catch (error) {
         failed++;
         logger(`History fetch failed for scheme ${fund.code}: ${error instanceof Error ? error.message : 'request failed'}`);

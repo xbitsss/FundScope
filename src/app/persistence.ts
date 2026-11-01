@@ -26,8 +26,8 @@ const requestResult = <T>(request: IDBRequest<T>) => new Promise<T>((resolve,rej
 async function browserDb(): Promise<IDBDatabase> {
   return new Promise((resolve,reject)=>{
     console.log('Opening IndexedDB: fundscope-local');
-    const req=indexedDB.open('fundscope-local',6);
-    req.onupgradeneeded=(event)=>{const database=req.result;const transaction=req.transaction;if(event.oldVersion>0&&transaction){for(const name of Array.from(database.objectStoreNames)){const backup=`backup_v6_${name}`;if(database.objectStoreNames.contains(backup))continue;const source=transaction.objectStore(name);const target=database.createObjectStore(backup,{keyPath:source.keyPath as string|string[],autoIncrement:source.autoIncrement});source.openCursor().onsuccess=cursorEvent=>{const cursor=(cursorEvent.target as IDBRequest<IDBCursorWithValue|null>).result;if(cursor){target.put(cursor.value);cursor.continue();}};}}if(!database.objectStoreNames.contains('funds'))database.createObjectStore('funds',{keyPath:'code'});if(!database.objectStoreNames.contains('state'))database.createObjectStore('state',{keyPath:'key'});if(!database.objectStoreNames.contains('benchmark_series'))database.createObjectStore('benchmark_series',{keyPath:'schemeCode'});if(!database.objectStoreNames.contains('taxonomy'))database.createObjectStore('taxonomy',{keyPath:'schemeCode'});if(!database.objectStoreNames.contains('taxonomy_conflicts'))database.createObjectStore('taxonomy_conflicts',{keyPath:'id',autoIncrement:true});if(!database.objectStoreNames.contains('category_history'))database.createObjectStore('category_history',{keyPath:['schemeCode','sourceId','categoryRaw']});if(!database.objectStoreNames.contains('unmapped_categories'))database.createObjectStore('unmapped_categories',{keyPath:['categoryKey','sourceId']});if(!database.objectStoreNames.contains('unmapped_category_members'))database.createObjectStore('unmapped_category_members',{keyPath:['schemeCode','categoryKey','sourceId']});if(!database.objectStoreNames.contains('classification_audit'))database.createObjectStore('classification_audit',{keyPath:'id',autoIncrement:true});if(!database.objectStoreNames.contains('source_scheme_map'))database.createObjectStore('source_scheme_map',{keyPath:['schemeCode','sourceId','sourceSchemeCode','sourceName']});if(!database.objectStoreNames.contains('scheme_master'))database.createObjectStore('scheme_master',{keyPath:'schemeCode'});};
+    const req=indexedDB.open('fundscope-local',7);
+    req.onupgradeneeded=(event)=>{const database=req.result;const transaction=req.transaction;if(event.oldVersion>0&&transaction){for(const name of Array.from(database.objectStoreNames)){const backup=`backup_v7_${name}`;if(database.objectStoreNames.contains(backup))continue;const source=transaction.objectStore(name);const target=database.createObjectStore(backup,{keyPath:source.keyPath as string|string[],autoIncrement:source.autoIncrement});source.openCursor().onsuccess=cursorEvent=>{const cursor=(cursorEvent.target as IDBRequest<IDBCursorWithValue|null>).result;if(cursor){target.put(cursor.value);cursor.continue();}};}}if(!database.objectStoreNames.contains('funds'))database.createObjectStore('funds',{keyPath:'code'});if(!database.objectStoreNames.contains('nav_history'))database.createObjectStore('nav_history',{keyPath:'code'});if(!database.objectStoreNames.contains('state'))database.createObjectStore('state',{keyPath:'key'});if(!database.objectStoreNames.contains('benchmark_series'))database.createObjectStore('benchmark_series',{keyPath:'schemeCode'});if(!database.objectStoreNames.contains('taxonomy'))database.createObjectStore('taxonomy',{keyPath:'schemeCode'});if(!database.objectStoreNames.contains('taxonomy_conflicts'))database.createObjectStore('taxonomy_conflicts',{keyPath:'id',autoIncrement:true});if(!database.objectStoreNames.contains('category_history'))database.createObjectStore('category_history',{keyPath:['schemeCode','sourceId','categoryRaw']});if(!database.objectStoreNames.contains('unmapped_categories'))database.createObjectStore('unmapped_categories',{keyPath:['categoryKey','sourceId']});if(!database.objectStoreNames.contains('unmapped_category_members'))database.createObjectStore('unmapped_category_members',{keyPath:['schemeCode','categoryKey','sourceId']});if(!database.objectStoreNames.contains('classification_audit'))database.createObjectStore('classification_audit',{keyPath:'id',autoIncrement:true});if(!database.objectStoreNames.contains('source_scheme_map'))database.createObjectStore('source_scheme_map',{keyPath:['schemeCode','sourceId','sourceSchemeCode','sourceName']});if(!database.objectStoreNames.contains('scheme_master'))database.createObjectStore('scheme_master',{keyPath:'schemeCode'});};
     req.onsuccess=()=>{console.log('IndexedDB opened successfully');resolve(req.result);};
     req.onerror=()=>{console.error('Failed to open IndexedDB:',req.error);reject(req.error);};
   });
@@ -167,15 +167,24 @@ export async function saveFunds(funds:Fund[],onProgress?:(saved:number,total:num
   }
 }
 /** Replace the local catalogue with a verified snapshot while preserving user settings and audit stores. */
-export async function replaceFunds(funds:Fund[]):Promise<void>{
+export interface StoredNavHistory { code:number; snapshotId:string; points:NavPoint[]; loadedAt:number }
+export async function getNavHistory(code:number):Promise<StoredNavHistory|null>{
+  if(isTauri())return null;
+  const db=await browserDb();const row=await requestResult(db.transaction('nav_history','readonly').objectStore('nav_history').get(code)) as StoredNavHistory|undefined;return row??null;
+}
+export async function saveNavHistory(record:StoredNavHistory):Promise<void>{
+  if(isTauri())return;
+  const db=await browserDb();const tx=db.transaction('nav_history','readwrite');tx.objectStore('nav_history').put(record);await new Promise<void>((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});
+}
+export async function replaceFunds(funds:Fund[],snapshotId=''):Promise<void>{
   if(isTauri()){
     const db=await openDb();
     await db.execute('DELETE FROM schemes');
   }else{
-    const db=await browserDb();const tx=db.transaction('funds','readwrite');tx.objectStore('funds').clear();
+    const db=await browserDb();const old=await requestResult(db.transaction('funds','readonly').objectStore('funds').getAll()) as Fund[];const previousSnapshot=await requestResult(db.transaction('state','readonly').objectStore('state').get('snapshot_id')) as {key:string;value:string}|undefined;const preserve=Boolean(snapshotId&&previousSnapshot?.value===snapshotId);const byCode=new Map(old.map(fund=>[fund.code,fund]));const tx=db.transaction(['funds','nav_history','state'],'readwrite');tx.objectStore('funds').clear();for(const fund of funds){const prior=byCode.get(fund.code);tx.objectStore('funds').put(preserve&&prior?.history?.length?{...fund,history:prior.history,historyFetchedAt:prior.historyFetchedAt}:fund);}if(!preserve)tx.objectStore('nav_history').clear();if(snapshotId)tx.objectStore('state').put({key:'snapshot_id',value:snapshotId});
     await new Promise<void>((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});
   }
-  await saveFunds(funds);
+  if(isTauri())await saveFunds(funds);
 }
 const benchmarkGatedMetrics=['beta','r_squared','jensen_alpha','treynor','information_ratio','tracking_error','upside_capture','downside_capture','benchmark_outperformance_ratio'];
 function enforceClassificationMetricGate(fund:Fund):Fund{
