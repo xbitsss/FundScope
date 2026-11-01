@@ -4,6 +4,8 @@
 
 `config/category-map.json` is the versioned allowlist for AMFI category parsing. A parsed fund stores the rule identifier and taxonomy version with its asset class. Unknown categories are quarantined as `other`; they do not inherit an equity classification. The additive `scheme_taxonomy` store records the first classification. Later category or taxonomy-version changes are appended to `taxonomy_conflicts` for review and do not rewrite the original record.
 
+Taxonomy v2 signal states, source history, human review actions and migration snapshots are described in [CLASSIFICATION.md](CLASSIFICATION.md). Benchmark gating rejects both `CONFLICT_STALE` and `CONFLICT` classifications until an explicit review action is recorded.
+
 ## Proxy approval
 
 `config/benchmarks.json` is the only production mapping registry. A discovered MFapi scheme is not approved by discovery alone. Before changing a proxy from `unresolved` to `verified`, a reviewer must confirm the exact scheme and option, AMC/source identity, full usable history, plausible history dates, fund/index category fit, NAV and return sanity against an independent reference, and document date, scheme name, ISIN where available, and checks in the `verification` block. MFapi NAV proxies are price-return comparators; do not call them TRI series unless the underlying source establishes that fact. Composite weights must sum to one and composites cannot mix asset classes except the explicitly defined hybrid blend.

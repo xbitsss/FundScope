@@ -2,6 +2,8 @@
 
 All dates are represented as UTC epoch-days in the domain layer. NAV return series only use observed Growth-option observations; IDCW/Bonus options are filtered from the default universe. Values that lack required history remain null and render as an em dash.
 
+Fund asset class is assigned by the versioned AMFI taxonomy rules documented in [CLASSIFICATION.md](CLASSIFICATION.md). The classifier fails closed to `other` for unknown or ambiguous source labels; scheme names are consulted only for explicitly identified passive families. Peer-relative classification checks are flags only and never rewrite the binding class.
+
 ## Implemented now
 
 - CAGR: `(ending NAV / starting NAV) ^ (365.2425 / observed days) - 1`; the first observed NAV on or after the target date is used. A window must span at least 360 days per requested year.

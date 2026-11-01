@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "taxonomy_version": 1,
+  "taxonomy_version": 2,
   "max_series_age_days": 10,
   "benchmarks": [
     { "id": "nifty50_proxy", "display_name": "Nifty 50 TRI (Proxy)", "asset_class": "equity", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },

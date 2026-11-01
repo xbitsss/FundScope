@@ -1,0 +1,6 @@
+{
+  "k": 4,
+  "minPeerSize": 8,
+  "minimumAlignedReturns": 200,
+  "lookbackYears": 1
+}

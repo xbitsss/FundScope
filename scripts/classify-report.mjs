@@ -7,23 +7,46 @@ const navUrl = 'https://portal.amfiindia.com/spages/NAVAll.txt';
 const amfiApi = 'https://www.amfiindia.com/api';
 const mfapi = 'https://api.mfapi.in/mf';
 const args = new Set(process.argv.slice(2));
+if (args.has('--help')) {
+  console.log('Usage: pnpm classify:report [--write-fixtures] [--write-report] [--write-draft]');
+  console.log('Reads the current AMFI NAVAll catalog and compares production v2 rules with the C0 proposal. Requires network access.');
+  process.exit(0);
+}
 const shouldWriteFixtures = args.has('--write-fixtures');
 const shouldWriteReport = args.has('--write-report');
 const shouldWriteDraft = args.has('--write-draft');
 
 const categoryMap = JSON.parse(await readFile(resolve(root, 'config/category-map.json'), 'utf8'));
+const passiveRules = JSON.parse(await readFile(resolve(root, 'config/passive-rules.json'), 'utf8'));
 
 function classifyWithCurrentConfig(categoryRaw, name) {
-  const pieces = categoryRaw.split(' - ');
-  const family = pieces[0]?.trim() ?? '';
-  const subCategory = (pieces.slice(1).join(' - ') || categoryRaw).replace(/\s+Fund$/i, '').trim();
-  for (const rule of categoryMap.rules) {
-    if (rule.family !== '*' && family.toLowerCase() !== rule.family.toLowerCase()) continue;
-    if (rule.sub_categories && !rule.sub_categories.includes('*') && !rule.sub_categories.some(item => item.toLowerCase() === subCategory.toLowerCase())) continue;
-    if (rule.name_patterns?.length && !rule.name_patterns.some(pattern => new RegExp(pattern, 'i').test(name))) continue;
-    return { assetClass: rule.asset_class, ruleId: rule.id };
+  const normalize = value => value.normalize('NFKC').replace(/[‐‑‒–—−]/g, '-').replace(/[‘’]/g, "'").replace(/\s*\/\s*/g, '/').replace(/\s+/g, ' ').trim();
+  const lower = value => normalize(value).toLocaleLowerCase('en');
+  const normalized = normalize(categoryRaw);
+  const separator = normalized.indexOf(' - ');
+  let family = null;
+  let subCategory = normalized;
+  if (separator >= 0) {
+    const rawFamily = normalized.slice(0, separator);
+    family = categoryMap.family_aliases.find(item => lower(item.alias) === lower(rawFamily))?.canonical ?? rawFamily;
+    const rawSub = normalized.slice(separator + 3).replace(/\s+(?:funds?|etfs?)$/i, '').trim();
+    const subAlias = categoryMap.subcategory_aliases.find(item => lower(item.family) === lower(family) && lower(item.alias.replace(/\s+(?:funds?|etfs?)$/i, '')) === lower(rawSub));
+    subCategory = (subAlias?.canonical ?? rawSub).replace(/\s+(?:funds?|etfs?)$/i, '').trim();
   }
-  return { assetClass: 'other', ruleId: 'quarantine_default' };
+  const exact = categoryMap.exact_category_rules.find(rule => lower(rule.category) === lower(subCategory));
+  if (exact) return { assetClass: exact.asset_class, ruleId: exact.id };
+  const sub = categoryMap.subcategory_rules.find(rule => lower(rule.family) === lower(family ?? '') && rule.sub_categories.some(item => lower(item) === lower(subCategory)));
+  if (sub) return { assetClass: sub.asset_class, ruleId: sub.id };
+  const familyRule = categoryMap.family_rules.find(rule => lower(rule.family) === lower(family ?? ''));
+  if (familyRule) return { assetClass: familyRule.asset_class, ruleId: familyRule.id };
+  if (categoryMap.passive_families.some(item => lower(item) === lower(family ?? ''))) {
+    const matched = passiveRules.rules.filter(rule => new RegExp(rule.pattern, 'i').test(name));
+    const classes = [...new Set(matched.map(rule => rule.asset_class))];
+    if (classes.length > 1) return { assetClass: 'other', ruleId: 'PASSIVE_AMBIGUOUS' };
+    if (matched.length) return { assetClass: matched[0].asset_class, ruleId: matched[0].id };
+    return { assetClass: 'other', ruleId: 'PASSIVE_UNMATCHED' };
+  }
+  return { assetClass: 'other', ruleId: 'UNMAPPED', acknowledged: categoryMap.acknowledged_unmapped.some(item => lower(item.category) === lower(subCategory)) };
 }
 
 function draftCategoryOutcome(categoryRaw) {

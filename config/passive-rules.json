@@ -1,0 +1,28 @@
+{
+  "rules": [
+    {
+      "id": "passive_overseas_or_alternative",
+      "asset_class": "other",
+      "pattern": "\\b(overseas|international|global|world|nasdaq|s\\s*&\\s*p|sp\\s*500|us equity|gold|silver|commodity|reit|invit)\\b",
+      "rationale": "Foreign, commodity and real-asset trackers do not map to domestic equity/debt proxies."
+    },
+    {
+      "id": "passive_liquid_index",
+      "asset_class": "liquid",
+      "pattern": "\\b(overnight|liquid|money market|t\\s*-?\\s*bills?)\\b",
+      "rationale": "Explicit short cash-market trackers."
+    },
+    {
+      "id": "passive_debt_index",
+      "asset_class": "debt",
+      "pattern": "\\b(g\\s*-?\\s*sec|gilt|sovereign|bond|debt|target maturity|bharat bond|state development loan|\\bsdl\\b|corporate|psu)\\b",
+      "rationale": "The scheme name explicitly identifies a domestic fixed-income index or instrument."
+    },
+    {
+      "id": "passive_equity_index",
+      "asset_class": "equity",
+      "pattern": "\\b(nifty|sensex|bse\\s*(100|200|500)|mid.?cap|small.?cap|large.?cap|equity index|equity etf|equity fund)\\b",
+      "rationale": "The scheme name explicitly identifies a domestic equity market index or exposure."
+    }
+  ]
+}

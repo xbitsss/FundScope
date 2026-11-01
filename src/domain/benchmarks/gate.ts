@@ -16,6 +16,7 @@ const failure=(reason:ReasonDetail,overlapDays:number|null=null):RegressionGateR
 
 function approve(input:ApprovedInput):GateApproved|ReasonDetail{
   const fund=input.fund;
+  if(fund.classStatus==='CONFLICT'||fund.classStatus==='CONFLICT_STALE')return {code:'NA_CATEGORY',cause:'CLASSIFICATION_UNCERTAIN',fundAssetClass:fund.assetClass,subCategory:fund.subCategory,s1Class:fund.classDetail?.s1.assetClass??fund.assetClass,s2Class:fund.classDetail?.s2?.assetClass,s3Class:fund.classDetail?.s3?.assetClass};
   if(!['equity','debt','hybrid','liquid','other'].includes(fund.assetClass)||fund.assetClass==='other')return {code:'NA_CATEGORY',cause:'UNCLASSIFIED_FUND',fundAssetClass:fund.assetClass,subCategory:fund.subCategory};
   if(input.benchmarkAssetClass!==fund.assetClass)return {code:'NA_CATEGORY',cause:'ASSET_CLASS_MISMATCH',fundAssetClass:fund.assetClass,benchmarkAssetClass:input.benchmarkAssetClass as AssetClass,subCategory:fund.subCategory};
   if(!input.benchmarkHistory.length)return {code:'NO_BENCHMARK',cause:'SERIES_NOT_LOADED',subCategory:fund.subCategory};

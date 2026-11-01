@@ -53,3 +53,9 @@
 - **Built:** Source freshness/detail view, actual metric coverage percentages, basic theme/risk-rate/density settings and disclaimer.
 - **Verified:** Typecheck, test suite, production bundle, whitespace check and Tauri JSON parse passed.
 - **Risk:** Backup/restore, default-universe completion and packaging remain outstanding.
+
+## Milestone 9 · AMFI taxonomy and classification governance — implementation complete; audit pending
+
+- **Built:** Production taxonomy v2 rules and passive-family constraints; fail-closed category normalization; AMFI NAVAll master-row parser with N.A. NAV retention and feed-shape diagnostics; S1/S2/S3 reconciliation; local taxonomy migrations, provenance/history, unmapped summaries, drift/conflict and human-decision audit; S4 plausibility flags; screener filters, detail provenance and Classification governance UI; SID sample download/import; offline audit CLI commands.
+- **Verified:** 30 unit tests pass; TypeScript project checks and production Vite build pass; audit command help paths run without network access.
+- **Pending:** A human must complete and import the stratified SID review. The live AMFI category report could not be refreshed in this environment because network DNS access was unavailable. No independent audit agreement percentage is claimed.

@@ -12,5 +12,6 @@ import './ui/styles/page-scroll.css';
 import './ui/styles/benchmark.css';
 import './ui/styles/responsive-workspace.css';
 import './ui/styles/interaction-fixes.css';
+import './ui/styles/classification.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><App /></React.StrictMode>);

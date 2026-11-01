@@ -1,44 +1,43 @@
 {
-  "taxonomy_version": 1,
-  "rules": [
-    { "id": "equity_large_cap", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Large Cap"] },
-    { "id": "equity_mid_cap", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Mid Cap"] },
-    { "id": "equity_small_cap", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Small Cap"] },
-    { "id": "equity_large_mid_cap", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Large & Mid Cap"] },
-    { "id": "equity_multi_cap", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Multi Cap"] },
-    { "id": "equity_flexi_cap", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Flexi Cap"] },
-    { "id": "equity_elss", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["ELSS"] },
-    { "id": "equity_focused", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Focused"] },
-    { "id": "equity_value", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Value"] },
-    { "id": "equity_contra", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Contra"] },
-    { "id": "equity_dividend_yield", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Dividend Yield"] },
-    { "id": "equity_sectoral_thematic", "asset_class": "equity", "family": "Equity Scheme", "sub_categories": ["Sectoral/Thematic"] },
-    { "id": "debt_ultra_short", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Ultra Short Duration"] },
-    { "id": "debt_low_duration", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Low Duration"] },
-    { "id": "debt_short_duration", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Short Duration"] },
-    { "id": "debt_medium_duration", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Medium Duration"] },
-    { "id": "debt_medium_long_duration", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Medium to Long Duration"] },
-    { "id": "debt_long_duration", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Long Duration"] },
-    { "id": "debt_dynamic_bond", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Dynamic Bond"] },
-    { "id": "debt_corporate_bond", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Corporate Bond"] },
-    { "id": "debt_credit_risk", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Credit Risk"] },
-    { "id": "debt_banking_psu", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Banking and PSU"] },
-    { "id": "debt_gilt", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Gilt", "Gilt with 10 year constant duration"] },
-    { "id": "debt_floater", "asset_class": "debt", "family": "Debt Scheme", "sub_categories": ["Floater"] },
-    { "id": "liquid_overnight", "asset_class": "liquid", "family": "Debt Scheme", "sub_categories": ["Overnight"] },
-    { "id": "liquid_liquid", "asset_class": "liquid", "family": "Debt Scheme", "sub_categories": ["Liquid"] },
-    { "id": "liquid_money_market", "asset_class": "liquid", "family": "Debt Scheme", "sub_categories": ["Money Market"] },
-    { "id": "hybrid_aggressive", "asset_class": "hybrid", "family": "Hybrid Scheme", "sub_categories": ["Aggressive Hybrid"] },
-    { "id": "hybrid_balanced", "asset_class": "hybrid", "family": "Hybrid Scheme", "sub_categories": ["Balanced Hybrid"] },
-    { "id": "hybrid_conservative", "asset_class": "hybrid", "family": "Hybrid Scheme", "sub_categories": ["Conservative Hybrid"] },
-    { "id": "hybrid_dynamic_allocation", "asset_class": "hybrid", "family": "Hybrid Scheme", "sub_categories": ["Dynamic Asset Allocation or Balanced Advantage"] },
-    { "id": "hybrid_multi_asset", "asset_class": "hybrid", "family": "Hybrid Scheme", "sub_categories": ["Multi Asset Allocation"] },
-    { "id": "hybrid_arbitrage", "asset_class": "hybrid", "family": "Hybrid Scheme", "sub_categories": ["Arbitrage"] },
-    { "id": "hybrid_equity_savings", "asset_class": "hybrid", "family": "Hybrid Scheme", "sub_categories": ["Equity Savings"] },
-    { "id": "other_solution_oriented", "asset_class": "other", "family": "Solution Oriented Scheme", "sub_categories": ["Retirement", "Children's"] },
-    { "id": "index_equity_tracked", "asset_class": "equity", "family": "Other Scheme", "name_patterns": ["nifty", "sensex", "bse\\s*500", "equity"] },
-    { "id": "index_debt_tracked", "asset_class": "debt", "family": "Other Scheme", "name_patterns": ["g[ -]?sec", "gilt", "sovereign", "corporate bond", "bharat bond", "debt index"] },
-    { "id": "index_liquid_tracked", "asset_class": "liquid", "family": "Other Scheme", "name_patterns": ["liquid", "overnight", "money market"] },
-    { "id": "quarantine_default", "asset_class": "other", "family": "*", "sub_categories": ["*"] }
+  "taxonomy_version": 2,
+  "status": "production v2 built from the live C0 category inventory",
+  "family_aliases": [
+    { "alias": "Equity Schemes", "canonical": "Equity Scheme" },
+    { "alias": "Hybrid Schemes", "canonical": "Hybrid Scheme" },
+    { "alias": "Income/Debt Oriented Schemes", "canonical": "Debt Scheme" },
+    { "alias": "Solution Oriented Schemes **", "canonical": "Solution Oriented Scheme" }
+  ],
+  "subcategory_aliases": [
+    { "family": "Debt Scheme", "alias": "10-year Constant Maturity Gilt", "canonical": "Gilt with 10 year constant duration" },
+    { "family": "Debt Scheme", "alias": "Dynamic Term", "canonical": "Dynamic Bond" },
+    { "family": "Debt Scheme", "alias": "Banking and PSU Debt", "canonical": "Banking and PSU" },
+    { "family": "Debt Scheme", "alias": "Floating Interest Rates", "canonical": "Floater" },
+    { "family": "Hybrid Scheme", "alias": "Balanced Advantage Fund/ Dynamic Asset Allocation", "canonical": "Dynamic Asset Allocation or Balanced Advantage" }
+  ],
+  "family_rules": [
+    { "id": "equity_scheme", "family": "Equity Scheme", "asset_class": "equity" },
+    { "id": "debt_scheme", "family": "Debt Scheme", "asset_class": "debt" },
+    { "id": "hybrid_scheme", "family": "Hybrid Scheme", "asset_class": "hybrid" },
+    { "id": "life_cycle_quarantine", "family": "Life Cycle Funds", "asset_class": "other" },
+    { "id": "solution_oriented_quarantine", "family": "Solution Oriented Scheme", "asset_class": "other" },
+    { "id": "childrens_fund_quarantine", "family": "Children’s Fund", "asset_class": "other" }
+  ],
+  "subcategory_rules": [
+    { "id": "debt_overnight_liquid", "family": "Debt Scheme", "sub_categories": ["Overnight", "Liquid", "Money Market"], "asset_class": "liquid" }
+  ],
+  "exact_category_rules": [
+    { "id": "legacy_elss", "category": "ELSS", "asset_class": "equity" },
+    { "id": "legacy_gilt", "category": "Gilt", "asset_class": "debt" }
+  ],
+  "passive_families": [
+    "Other Scheme",
+    "Index Funds",
+    "Exchange Traded Funds (ETFs)",
+    "Fund of Funds Scheme (Domestic)",
+    "Overseas Fund of Funds"
+  ],
+  "acknowledged_unmapped": [
+    { "category": "Growth", "reason": "Legacy top-level label does not identify the regulator category or underlying asset class." },
+    { "category": "Income", "reason": "Legacy top-level label does not identify the regulator category or underlying asset class." }
   ]
 }

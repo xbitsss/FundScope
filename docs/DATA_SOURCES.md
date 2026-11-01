@@ -61,6 +61,12 @@ The read-only discovery run is recorded in [classification-discovery-c0.md](clas
 - **S2 MFapi history:** the real `/mf/129008` response had `meta.fund_house`, `scheme_type`, `scheme_category`, `scheme_code`, `scheme_name`, `isin_growth`, and `isin_div_reinvestment`, plus `status` and a `data[]` history. The sampled `scheme_category` matched S1 for that scheme. This is one agreement sample, not a measured cross-source agreement rate.
 - **S3 AMFI TER:** the official `populate-te-rdata-revised` row includes `Scheme_Name`, `SchemeType_Desc`, `SchemeCat_Desc`, `TER_Date`, `R_TER`, `D_TER`, and `NSDLSchemeCode`; the sampled row did not include an AMFI scheme code. Its category is available per family row, but code-level reconciliation needs a separately audited source-scheme map. A request with `pageSize=10000` returned `meta.pageSize=100`, `total=2494`, and `pageCount=25` for Axis in October 2026. The current app ingester requests only page 1, so the S3 feed is incomplete until pagination is implemented. This is recorded for a later pipeline milestone, not changed in C0.
 
+## Taxonomy v2 implementation (1 November 2026)
+
+The production classifier now uses versioned AMFI family/subcategory rules, an explicit passive-family allowlist, and passive candidate patterns. Unknown categories and ambiguous passive candidates stay `other`. The AMFI parser now persists `N.A.` NAV rows as master records and checks feed shape before replacing the cached catalog. Classification provenance, source disagreement, mapping history and SID audit results are stored locally. See [CLASSIFICATION.md](CLASSIFICATION.md) for rules, status behavior, migration and audit commands.
+
+AMFI TER ingestion now walks all response pages and attaches S3 category data only after a unique AMC plus normalized scheme-family match. Its observation timestamp is the date published in `TER_Date`; the separate source mapping record retains the local match time. This improves row coverage but does not turn the family-name join into a verified scheme-code contract. Coverage and unmatched rows must be monitored through the local diagnostics.
+
 ### Prompt assumptions checked
 
 - **Confirmed from the live AMFI feed:** new Life Cycle category headers are present; Sectoral and Thematic occur as separate raw strings as well as an older combined string; the Sectoral Debt examples are published under `Income/Debt Oriented Schemes - Sectoral Fund`, not a literal `Sectoral Debt Fund` category label; both old and new singular/plural family spellings occur.

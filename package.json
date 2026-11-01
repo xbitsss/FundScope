@@ -11,6 +11,8 @@
     "test": "vitest run",
     "benchmarks:discover": "node scripts/discover-benchmarks.mjs",
     "classify:report": "node scripts/classify-report.mjs",
+    "classify:audit-sample": "node scripts/classify-audit-sample.mjs",
+    "classify:audit-import": "node scripts/classify-audit-import.mjs",
     "tauri": "tauri"
   },
   "dependencies": {

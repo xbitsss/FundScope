@@ -1,6 +1,8 @@
 import { applyDisclosures, normalizeDisclosureName, parseAmfiAverageAumRows, parseDisclosureCsv, parseDisclosureWorkbook, workbookHasIndustryAumOnly, type DisclosureRecord } from '../adapters/amfi_disclosures';
 import type { Fund } from '../domain/types';
 import { getFunds, saveFunds } from './persistence';
+import { recordSourceSchemeMapping } from './persistence';
+import { previousConflictFrom, reconcileClassification } from '../domain/taxonomy/consensus';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 
 const safeFetch=(url:string,init?:RequestInit)=>url.startsWith('/')?fetch(url,init):('__TAURI_INTERNALS__' in window?tauriFetch(url,init):fetch(url,init));
@@ -56,11 +58,13 @@ export async function ingestLatestAmfiAverageAum(fundsInput?:Fund[]):Promise<{up
 }
 
 type AmfiHouse={mfId:string;mfName:string};
-type AmfiTerRow={Scheme_Name:string;TER_Date:string;R_TER:string;D_TER:string};
+type AmfiTerRow={Scheme_Name:string;TER_Date:string;R_TER:string;D_TER:string;SchemeCat_Desc?:string;NSDLSchemeCode?:string};
 const parseObject=(value:unknown):Record<string,unknown>|null=>value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:null;
 const wait=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 
-/** Fetches AMFI's current-month daily TER disclosure, keyed by AMC and unique scheme family name. */
+const terBaseName=(value:string)=>normalizeDisclosureName(value).replace(/\b(?:direct|regular) plan\b.*$/,'').replace(/\b(?:growth|idcw|dividend payout|dividend reinvestment|bonus)\b(?: option)?$/,'').trim();
+
+/** Fetches all AMFI TER pages; S3 is attached only for a unique AMC + normalized-name match. */
 export async function ingestCurrentMonthAmfiTer(fundsInput?:Fund[],onProgress?:(done:number,total:number)=>void):Promise<{updated:Fund[];records:number;failed:number;month:string}>{
   const funds=fundsInput??await getFunds();const now=new Date();const month=`${String(now.getUTCMonth()+1).padStart(2,'0')}-${now.getUTCFullYear()}`;
   if(localStorage.getItem('fundscope-amfi-ter-month')===month)return {updated:funds,records:0,failed:0,month};
@@ -68,19 +72,20 @@ export async function ingestCurrentMonthAmfiTer(fundsInput?:Fund[],onProgress?:(
   const housePayload:unknown=await housesResponse.json();if(!Array.isArray(housePayload))throw new Error('AMFI returned an invalid AMC list.');
   const relevantNames=new Set(funds.map(fund=>normalizeDisclosureName(fund.amc)));const houses=(housePayload as unknown[]).flatMap(item=>{const record=parseObject(item);return typeof record?.mfId==='string'&&typeof record.mfName==='string'&&relevantNames.has(normalizeDisclosureName(record.mfName))?[{mfId:record.mfId,mfName:record.mfName}]:[];});
   if(!houses.length)throw new Error('AMFI AMC names did not match the local scheme catalogue.');
-  const recordsByCode=new Map<number,DisclosureRecord>();let failed=0;
+  const recordsByCode=new Map<number,DisclosureRecord>();const s3ByCode=new Map<number,{row:AmfiTerRow;amc:string;matchedAt:number;observedAt:number}>();let failed=0;
   for(let index=0;index<houses.length;index++){
-    const house=houses[index]!;let rows:AmfiTerRow[]|null=null;
-    for(let attempt=0;attempt<3&&!rows;attempt++){
-      try{const url=`https://www.amfiindia.com/api/populate-te-rdata-revised?MF_ID=${encodeURIComponent(house.mfId)}&Month=${encodeURIComponent(month)}&strCat=-1&strType=1&page=1&pageSize=10000`;const response=await safeFetch(url,{cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);const payload=parseObject(await response.json());if(!Array.isArray(payload?.data))throw new Error('Malformed AMFI TER response.');rows=payload.data as AmfiTerRow[];}catch{if(attempt<2)await wait(1500*(attempt+1));}
+    const house=houses[index]!;const rows:AmfiTerRow[]=[];let pageCount=1;let page=1;let requestFailed=false;
+    while(page<=pageCount&&page<=100){let pageRows:AmfiTerRow[]|null=null;for(let attempt=0;attempt<3&&!pageRows;attempt++){try{const url=`https://www.amfiindia.com/api/populate-te-rdata-revised?MF_ID=${encodeURIComponent(house.mfId)}&Month=${encodeURIComponent(month)}&strCat=-1&strType=1&page=${page}&pageSize=100`;const response=await safeFetch(url,{cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);const payload=parseObject(await response.json());if(!Array.isArray(payload?.data))throw new Error('Malformed AMFI TER response.');pageRows=payload.data as AmfiTerRow[];const meta=parseObject(payload.meta);const pages=Number(meta?.pageCount);if(Number.isInteger(pages)&&pages>0)pageCount=pages;}catch{if(attempt<2)await wait(1000*(attempt+1));}}
+      if(!pageRows){requestFailed=true;break;}rows.push(...pageRows);page++;if(page<=pageCount)await wait(150);
     }
-    if(!rows){failed++;onProgress?.(index+1,houses.length);if(index+1<houses.length)await wait(1000);continue;}
-    const schemeRows=new Map<string,AmfiTerRow>();for(const row of rows){if(typeof row.Scheme_Name!=='string'||typeof row.TER_Date!=='string')continue;const key=normalizeDisclosureName(row.Scheme_Name);const prior=schemeRows.get(key);if(!prior||row.TER_Date>prior.TER_Date)schemeRows.set(key,row);}
-    const byName=new Map<string,Fund[]>();for(const fund of funds){if(normalizeDisclosureName(fund.amc)!==normalizeDisclosureName(house.mfName))continue;const matches=byName.get(normalizeDisclosureName(fund.name))??[];matches.push(fund);byName.set(normalizeDisclosureName(fund.name),matches);}
-    for(const [name,row] of schemeRows){const matched=byName.get(name);if(!matched)continue;const terDate=Date.parse(row.TER_Date);if(!Number.isFinite(terDate))continue;const asOf=Math.floor(terDate/86_400_000);for(const fund of matched){const raw=fund.plan==='Direct'?row.D_TER:fund.plan==='Regular'?row.R_TER:undefined;if(raw==null||String(raw).trim()==='')continue;const terPct=Number(raw);if(!Number.isFinite(terPct)||terPct<0||terPct>20)continue;recordsByCode.set(fund.code,{schemeCode:fund.code,terPct,source:'AMFI_DISCLOSURE',asOf});}}
+    if(requestFailed||page<=pageCount){failed++;onProgress?.(index+1,houses.length);if(index+1<houses.length)await wait(1000);continue;}
+    const schemeRows=new Map<string,AmfiTerRow>();for(const row of rows){if(typeof row.Scheme_Name!=='string'||typeof row.TER_Date!=='string')continue;const key=terBaseName(row.Scheme_Name);const prior=schemeRows.get(key);if(!prior||row.TER_Date>prior.TER_Date)schemeRows.set(key,row);}
+    const byName=new Map<string,Fund[]>();for(const fund of funds){if(normalizeDisclosureName(fund.amc)!==normalizeDisclosureName(house.mfName))continue;const key=terBaseName(fund.name);const matches=byName.get(key)??[];matches.push(fund);byName.set(key,matches);}
+    for(const [name,row] of schemeRows){const matched=byName.get(name);if(!matched?.length)continue;const distinctCategories=new Set(matched.map(fund=>fund.subCategory));if(distinctCategories.size>1)continue;const terDate=Date.parse(row.TER_Date);if(!Number.isFinite(terDate))continue;const asOf=Math.floor(terDate/86_400_000);const matchedAt=Date.now();for(const fund of matched){const raw=fund.plan==='Direct'?row.D_TER:fund.plan==='Regular'?row.R_TER:undefined;if(raw!=null&&String(raw).trim()!==''){const terPct=Number(raw);if(Number.isFinite(terPct)&&terPct>=0&&terPct<=20)recordsByCode.set(fund.code,{schemeCode:fund.code,terPct,source:'AMFI_DISCLOSURE',asOf});}if(typeof row.SchemeCat_Desc==='string'&&row.SchemeCat_Desc.trim())s3ByCode.set(fund.code,{row,amc:house.mfName,matchedAt,observedAt:asOf*86_400_000});}}
     onProgress?.(index+1,houses.length);if(index+1<houses.length)await wait(1000);
   }
-  const records=[...recordsByCode.values()];const updated=applyDisclosures(await getFunds(),records);await saveFunds(updated);
+  const records=[...recordsByCode.values()];const latestFunds=await getFunds();const updated=applyDisclosures(latestFunds,records).map(fund=>{const signal=s3ByCode.get(fund.code);if(!signal)return fund;const consensus=reconcileClassification({s1:{categoryRaw:fund.category,headerRaw:fund.headerRaw,observedAt:fund.classDetail?.s1.observedAt??fund.navDate*86_400_000},s2:fund.classDetail?.s2?{categoryRaw:fund.classDetail.s2.categoryRaw,observedAt:fund.classDetail.s2.observedAt}:undefined,s3:{categoryRaw:signal.row.SchemeCat_Desc!,observedAt:signal.observedAt},schemeName:fund.name,previousConflict:previousConflictFrom(fund.classDetail,fund.classStatus),previousReview:fund.classDetail?.review});return {...fund,classStatus:consensus.status,classDetail:consensus.detail};});await saveFunds(updated);
+  for(const [code,signal] of s3ByCode)await recordSourceSchemeMapping({schemeCode:code,sourceId:'s3_amfi_ter',sourceSchemeCode:signal.row.NSDLSchemeCode??signal.row.Scheme_Name,sourceName:signal.row.Scheme_Name,joinMethod:'AMC + exact normalized scheme family name',confidence:'high · unique name/category match',matchedAt:signal.matchedAt});
   if(failed===0){localStorage.setItem('fundscope-amfi-ter-month',month);localStorage.setItem('fundscope-amfi-ter-status',`${month} · ${records.length.toLocaleString('en-IN')} scheme-plan TER values`);}
   return {updated,records:records.length,failed,month};
 }

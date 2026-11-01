@@ -1,0 +1,37 @@
+.classification-page{max-width:1500px;padding-bottom:28px}
+.classification-card{min-width:0;margin-top:11px;padding:15px;background:var(--surface);border:1px solid var(--border);border-radius:7px}
+.classification-page .card-title{align-items:center;margin-bottom:10px}
+.classification-page .card-title h2{margin:4px 0 0;font-size:14px}
+.classification-page .card-title p{margin:4px 0 0;color:var(--text-muted);font-size:9px}
+.classification-matrix{overflow-x:auto;scrollbar-width:none}
+.classification-matrix::-webkit-scrollbar,.classification-table-wrap::-webkit-scrollbar{display:none}
+.matrix-row{display:grid;grid-template-columns:minmax(100px,1fr) repeat(4,minmax(105px,.9fr)) 70px;gap:10px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--border);font-size:10px}
+.matrix-row:last-child{border-bottom:0}
+.matrix-row span:not(:first-child),.matrix-row strong{text-align:right}
+.matrix-header{color:var(--text-muted);font-size:8px;font-weight:650;letter-spacing:.5px;text-transform:uppercase}
+.review-badge,.status-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:999px;padding:4px 8px;font-size:9px;color:var(--text-muted);white-space:nowrap}
+.review-badge,.status-conflict,.status-conflict_stale{color:var(--warning);border-color:color-mix(in srgb,var(--warning) 32%,var(--border));background:color-mix(in srgb,var(--warning) 8%,var(--surface))}
+.status-confirmed{color:var(--positive);border-color:color-mix(in srgb,var(--positive) 30%,var(--border))}
+.classification-table-wrap{overflow:auto;max-width:100%;scrollbar-width:none;overscroll-behavior:contain}
+.classification-table{width:100%;border-collapse:collapse;min-width:790px}
+.classification-table th,.classification-table td{padding:8px 9px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;font-size:9px;line-height:1.45}
+.classification-table th{position:sticky;top:0;background:var(--surface-2);color:var(--text-muted);font-size:8px;letter-spacing:.45px;text-transform:uppercase;z-index:1}
+.classification-table td b,.classification-table td small{display:block}
+.classification-table td small{margin-top:3px;color:var(--text-muted)}
+.governance-actions,.audit-actions{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+.classification-empty{display:flex;align-items:center;gap:7px;margin:8px 0 1px;color:var(--text-muted);font-size:10px}
+.classification-note{margin:0;color:var(--text-muted);font-size:9px}
+.classification-drawer .section-label{display:flex;align-items:center;justify-content:space-between}
+.classification-badges{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.classification-badges>span{padding:3px 7px;border-radius:4px;background:var(--surface-2);color:var(--text-muted);font-size:9px}
+.classification-badges .asset-class-badge{background:var(--accent-soft);color:var(--accent);font-weight:650;text-transform:capitalize}
+.classification-drawer>p{display:flex;flex-direction:column;gap:3px;margin:8px 0;font-size:9px}
+.classification-drawer>p span,.classification-drawer>small{color:var(--text-muted);font-size:9px;line-height:1.5}
+.classification-flag-list{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.classification-flag-list span{border:1px solid var(--border);border-radius:4px;padding:3px 5px;color:var(--warning);font-size:8px}
+.classification-why{margin-top:9px;border:1px solid var(--border);border-radius:5px;padding:7px 8px}
+.classification-why summary{cursor:pointer;font-size:9px;font-weight:600}
+.classification-why>div{display:grid;grid-template-columns:1fr;gap:3px;padding-top:8px;font-size:8px}
+.classification-why>div b{margin-top:3px}
+.classification-why>div span{color:var(--text-muted);overflow-wrap:anywhere}
+@media(max-width:800px){.classification-page .subpage-heading{align-items:flex-start}.classification-page .subpage-heading .button{white-space:nowrap}.matrix-row{grid-template-columns:minmax(90px,1fr) repeat(4,minmax(90px,.9fr)) 55px;gap:6px}.audit-card .card-title{align-items:flex-start;flex-direction:column}.audit-actions{width:100%}}

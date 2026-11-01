@@ -1,8 +1,9 @@
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { z } from 'zod';
-import { parseAmfiNavAll } from '../domain/parse/amfi';
+import { parseAmfiNavAllFile, parsedAmfiNavToFunds } from '../domain/parse/amfi';
+import { previousConflictFrom, reconcileClassification } from '../domain/taxonomy/consensus';
 import type { Fund, NavPoint } from '../domain/types';
-import { getFunds, reconcileFundTaxonomy, saveFunds, setSourceStatus } from './persistence';
+import { getFunds, reconcileFundTaxonomy, saveFunds, saveSchemeMasterRows, setSourceStatus } from './persistence';
 
 const apiNavSchema=z.object({meta:z.object({fund_house:z.string().optional(),scheme_type:z.string().optional(),scheme_category:z.string().optional(),scheme_code:z.number(),scheme_name:z.string()}).passthrough(),data:z.array(z.object({date:z.string(),nav:z.string()})),status:z.string()});
 const monthMap:Record<string,number>={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
@@ -26,10 +27,13 @@ export async function refreshCatalog(riskWindow=3,riskFreeRate=6.5,onStage?:(sta
     onStage?.('Downloading the AMFI catalog…');
     const response=await fetchWithTimeout('https://portal.amfiindia.com/spages/NAVAll.txt',undefined,20_000);
     if(!response.ok)throw new Error(`AMFI returned HTTP ${response.status}`);
-    const text=await response.text();onStage?.('Reading scheme data…');const funds=await reconcileFundTaxonomy(parseAmfiNavAll(text));
+    const text=await response.text();onStage?.('Reading scheme data…');const parsed=parseAmfiNavAllFile(text);
+    if(!parsed.diagnostics.shapeValid)throw new Error(`AMFI file shape check failed: ${parsed.diagnostics.parsedRowCount}/${parsed.diagnostics.candidateRowCount} data rows parsed; cached catalog was kept.`);
+    const cached=await getFunds();const cachedByCode=new Map(cached.map(fund=>[fund.code,fund]));const parsedFunds=parsedAmfiNavToFunds(parsed).map(fund=>{const prior=cachedByCode.get(fund.code);if(!prior)return fund;const consensus=reconcileClassification({s1:{categoryRaw:fund.category,headerRaw:fund.headerRaw,observedAt:fund.navDate*86_400_000},s2:prior.classDetail?.s2?{categoryRaw:prior.classDetail.s2.categoryRaw,observedAt:prior.classDetail.s2.observedAt}:undefined,s3:prior.classDetail?.s3?{categoryRaw:prior.classDetail.s3.categoryRaw,observedAt:prior.classDetail.s3.observedAt}:undefined,schemeName:fund.name,evaluatedAt:Date.now(),previousConflict:previousConflictFrom(prior.classDetail,prior.classStatus),previousReview:prior.classDetail?.review});return {...fund,classStatus:consensus.status,classDetail:consensus.detail};});const funds=await reconcileFundTaxonomy(parsedFunds);
     if(!funds.length)throw new Error('AMFI returned no usable NAV rows.');
+    await saveSchemeMasterRows(parsed.schemes,funds,cached);
     onStage?.(`Preparing ${funds.length.toLocaleString('en-IN')} schemes…`);
-    const cached=await getFunds();const byCode=new Map(cached.map(f=>[f.code,f]));
+    const byCode=cachedByCode;
     for(const fund of funds){
       const prior=byCode.get(fund.code);
       if(prior){
@@ -50,7 +54,8 @@ export async function refreshCatalog(riskWindow=3,riskFreeRate=6.5,onStage?:(sta
     throw error;
   }
 }
-export async function loadSchemeHistory(code:number, signal?:AbortSignal):Promise<NavPoint[]>{
+export interface LoadedSchemeHistory { history: NavPoint[]; schemeCategory: string | null; schemeName: string; fetchedAt: number }
+export async function loadSchemeHistoryWithMetadata(code:number, signal?:AbortSignal):Promise<LoadedSchemeHistory>{
   let lastError:unknown;
   for(let attempt=0;attempt<4;attempt++){
     try{
@@ -60,18 +65,21 @@ export async function loadSchemeHistory(code:number, signal?:AbortSignal):Promis
       const payload=apiNavSchema.parse(await response.json());if(payload.status!=='SUCCESS')throw new Error(`MFapi status: ${payload.status}`);
       const history=payload.data.flatMap(item=>{const date=parseMfapiDate(item.date);const nav=Number(item.nav);return date!==null&&Number.isFinite(nav)&&nav>0?[{date,nav}]:[];}).reverse();
       if(!history.length)throw new Error('MFapi returned an empty history.');
-      return history;
+      return {history,schemeCategory:payload.meta.scheme_category??null,schemeName:payload.meta.scheme_name,fetchedAt:Date.now()};
     }catch(error){lastError=error;if(signal?.aborted||attempt===3)throw error;const message=error instanceof Error?error.message:'';if(/timed out/i.test(message)||(/HTTP 4\d\d/.test(message)&&!message.includes('HTTP 429')))throw error;await new Promise(resolve=>setTimeout(resolve,500*2**attempt));}
   }
   throw lastError instanceof Error?lastError:new Error('Unable to load MFapi history.');
 }
+export async function loadSchemeHistory(code:number,signal?:AbortSignal):Promise<NavPoint[]>{return (await loadSchemeHistoryWithMetadata(code,signal)).history;}
 export async function backfillSelectedHistory(funds:Fund[],codes:number[],onProgress:(done:number,total:number)=>void):Promise<{updated:Fund[],loaded:number,failed:number}>{
   let next=0,done=0,loaded=0,failed=0;const byCode=new Map(funds.map(fund=>[fund.code,fund]));const updated:Fund[]=[];
   const worker=async()=>{
     while(true){
       const index=next++;if(index>=codes.length)return;
       const code=codes[index]!;
-      try{const history=await loadSchemeHistory(code);const fund=byCode.get(code);if(!fund)throw new Error('Scheme is not in the local catalog.');fund.history=history;fund.historyFetchedAt=Date.now();updated.push(fund);loaded++;}catch{failed++;}
+      try{const result=await loadSchemeHistoryWithMetadata(code);const fund=byCode.get(code);if(!fund)throw new Error('Scheme is not in the local catalog.');fund.history=result.history;fund.historyFetchedAt=result.fetchedAt;
+        if(result.schemeCategory){const s1ObservedAt=fund.classDetail?.s1.observedAt??fund.navDate*86_400_000;const consensus=reconcileClassification({s1:{categoryRaw:fund.category,headerRaw:fund.headerRaw,observedAt:s1ObservedAt},s2:{categoryRaw:result.schemeCategory,observedAt:result.fetchedAt},s3:fund.classDetail?.s3?{categoryRaw:fund.classDetail.s3.categoryRaw,observedAt:fund.classDetail.s3.observedAt}:undefined,schemeName:fund.name,evaluatedAt:result.fetchedAt,previousConflict:previousConflictFrom(fund.classDetail,fund.classStatus),previousReview:fund.classDetail?.review});fund.classStatus=consensus.status;fund.classDetail=consensus.detail;}
+        updated.push(fund);loaded++;}catch{failed++;}
       done++;onProgress(done,codes.length);
       if(next<codes.length)await new Promise(resolve=>setTimeout(resolve,120));
     }

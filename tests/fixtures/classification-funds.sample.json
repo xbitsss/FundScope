@@ -1,0 +1,14 @@
+{
+  "funds": [
+    {
+      "code": 101,
+      "name": "Example Large Cap Fund",
+      "category": "Equity Scheme - Large Cap Fund",
+      "subCategory": "Large Cap",
+      "assetClass": "equity",
+      "classRuleId": "equity_scheme",
+      "classStatus": "UNCONFIRMED",
+      "classDetail": { "s1": { "categoryRaw": "Equity Scheme - Large Cap Fund" } }
+    }
+  ]
+}

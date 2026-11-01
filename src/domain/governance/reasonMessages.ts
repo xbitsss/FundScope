@@ -4,7 +4,7 @@ import type { ReasonDetail } from './reasons';
 export function reasonMessage(detail:ReasonDetail|undefined,metricLabel:string):string{
   if(!detail)return `${metricLabel} source is not recorded.`;
   switch(detail.code){
-    case 'NA_CATEGORY':return detail.cause==='ASSET_CLASS_MISMATCH'?`${metricLabel} not applicable: ${detail.fundAssetClass} cannot be compared with a ${detail.benchmarkAssetClass??'different-class'} benchmark.`:`${metricLabel} not applicable: this scheme is quarantined as an unclassified asset category.`;
+    case 'NA_CATEGORY':if(detail.cause==='CLASSIFICATION_UNCERTAIN')return `${metricLabel} not applicable: this scheme's category is reported inconsistently across data sources (AMFI: ${detail.s1Class}${detail.s2Class?`, MFapi: ${detail.s2Class}`:''}${detail.s3Class?`, AMFI disclosure: ${detail.s3Class}`:''}) and is under review.`;return detail.cause==='ASSET_CLASS_MISMATCH'?`${metricLabel} not applicable: ${detail.fundAssetClass} cannot be compared with a ${detail.benchmarkAssetClass??'different-class'} benchmark.`:`${metricLabel} not applicable: this scheme is quarantined as an unclassified asset category.`;
     case 'NO_BENCHMARK':
       if(detail.cause==='UNMAPPED_CATEGORY')return `${metricLabel} unavailable: no benchmark is defined for ${detail.subCategory} funds.`;
       if(detail.cause==='UNRESOLVED_PROXY')return `${metricLabel} unavailable: the configured benchmark for ${detail.subCategory} has not been verified.`;
