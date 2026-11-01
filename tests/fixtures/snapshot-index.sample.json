@@ -1,0 +1,7 @@
+[
+  {"code":1,"name":"Alpha Direct Growth","amc":"Alpha","subCategory":"Flexi Cap","assetClass":"equity","structure":"open","plan":"Direct","option":"Growth","navDate":20000,"history":[]},
+  {"code":2,"name":"Alpha Regular Growth","amc":"Alpha","subCategory":"Flexi Cap","assetClass":"equity","structure":"open","plan":"Regular","option":"Growth","navDate":20000,"history":[]},
+  {"code":3,"name":"Beta Direct IDCW","amc":"Beta","subCategory":"Corporate Bond","assetClass":"debt","structure":"open","plan":"Direct","option":"IDCW","navDate":20000,"history":[]},
+  {"code":4,"name":"Gamma Unknown","amc":"Gamma","subCategory":"Closed Equity","assetClass":"equity","structure":"close","plan":"Unknown","option":"Unknown","navDate":20000,"history":[]},
+  {"code":5,"name":"Delta Interval","amc":"Delta","subCategory":"Interval Debt","assetClass":"debt","structure":"interval","plan":"Direct","option":"Growth","navDate":20000,"history":[]}
+]
