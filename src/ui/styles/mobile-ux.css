@@ -14,6 +14,19 @@
 .app-crash-card p{color:var(--text-muted);font-size:14px;line-height:1.6}
 .snapshot-setting-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
 .snapshot-update-ready{border-color:color-mix(in srgb,var(--accent) 40%,var(--border));color:var(--accent)}
+.growth-chart-wrap{width:100%;max-width:100%;min-width:0;overflow:hidden}
+.interactive-line-chart{touch-action:pan-y;user-select:none;cursor:crosshair}
+.interactive-line-chart:focus-visible{outline:2px solid var(--accent);outline-offset:-3px;border-radius:5px}
+.chart-year-marker{stroke:var(--border);stroke-width:1;stroke-dasharray:2 4}
+.chart-year-label{fill:var(--text-muted);font-size:10px;font-variant-numeric:tabular-nums}
+.chart-active-marker{stroke:var(--accent);stroke-width:1.5;stroke-dasharray:4 3;pointer-events:none}
+.chart-active-point{pointer-events:none}
+.chart-date-readout{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;width:100%;min-width:0;max-width:100%;min-height:30px;padding:7px 2px;color:var(--text-muted);font-size:10px;line-height:1.35}
+.chart-date-readout strong{flex:0 0 auto;color:var(--text)}
+.chart-date-readout>span{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;overflow-wrap:anywhere}
+.chart-date-readout i{width:7px;height:7px;flex:0 0 7px;border-radius:50%}
+.chart-date-readout b{color:var(--text);font-variant-numeric:tabular-nums}
+.filter-summary-bar,.summary-chips,.summary-chip,.chip-label,.setting-row,.setting-row>div{min-width:0}
 
 @media(max-width:767px){
   html,body,#root{width:100%;height:100%;min-width:0;overflow:hidden}
@@ -214,6 +227,12 @@
   .subpage{overflow-x:visible}
   .mobile-result-cards{flex:1 1 auto;min-height:0}
   .screener-heading .heading-actions .button,.subpage-heading>.button,.empty-actions>.button{min-width:0;max-width:100%;height:auto;white-space:normal;overflow-wrap:anywhere;line-height:1.2}
+  .filter-summary-bar,.summary-chips,.summary-chip,.chip-label,.setting-row,.setting-row>div,.growth-chart-wrap,.chart-date-readout{min-width:0;max-width:100%}
+  .filter-summary-bar{width:100%;overflow:hidden}
+  .summary-chip{flex:0 1 auto}
+  .setting-row small,.subpage h1,.subpage h2,.subpage p{overflow-wrap:anywhere}
+  .chart-date-readout{font-size:9px}
+  .chart-year-label{font-size:16px}
 }
 
 /* Keep the filter control and count in separate grid cells on narrow screens. */
