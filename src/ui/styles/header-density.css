@@ -27,3 +27,25 @@
   background: var(--surface-2);
   color: var(--text);
 }
+
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+  gap: 7px;
+  width: auto;
+  min-width: 112px;
+  height: 36px;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.filter-toggle svg {
+  flex: 0 0 auto;
+}
+
+.filter-toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

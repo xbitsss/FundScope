@@ -21,10 +21,12 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .screen-options-popover{left:auto;right:0;top:calc(100% + 6px);bottom:auto;width:min(340px,calc(100vw - 24px));max-height:min(360px,calc(100dvh - 110px));overflow-y:auto;overscroll-behavior:contain}
 .picker-empty{margin:8px;padding:8px;color:var(--text-muted);font-size:10px}
 @media(max-width:900px){
-  .topbar{gap:10px;padding-inline:10px}
-  .top-search{margin-left:0;min-width:80px}
+  .topbar{gap:10px;padding-inline:10px;min-width:0}
+  .top-search{flex:1 1 160px;margin-left:0;min-width:0}
   .top-search kbd{display:none}
-  .freshness{max-width:150px;overflow:hidden;text-overflow:ellipsis}
+  .top-actions{flex-shrink:1;min-width:0;gap:4px}
+  .top-actions .icon-button{flex:0 0 32px}
+  .freshness{min-width:0;max-width:clamp(96px,19vw,150px);overflow:hidden;text-overflow:ellipsis}
   .nav-rail{width:48px;padding-inline:4px}
   .nav-item{width:38px;height:38px}
   .screener-layout{position:relative}
@@ -35,7 +37,10 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   .page-heading h1{font-size:18px}
   .subtitle{max-width:45vw}
   .heading-actions .button{padding-inline:7px}
-  .summary-strip{gap:8px;padding:8px}
+  .summary-strip{gap:8px;padding:8px;flex-wrap:wrap}
+  .summary-left{flex:1 1 100%;min-width:0}
+  .filter-toggle{min-width:112px;max-width:100%;height:40px}
+  .table-actions{width:100%;min-width:0;flex:1 1 100%;flex-wrap:wrap;justify-content:flex-start}
   .summary-context{display:none}
   .table-actions{gap:2px}
   .toolbar-button{padding-inline:6px}
