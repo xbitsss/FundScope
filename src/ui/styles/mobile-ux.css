@@ -12,6 +12,8 @@
 .app-crash-card{width:min(100%,520px);padding:24px;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow)}
 .app-crash-card h1{margin:10px 0;font-size:clamp(22px,4vw,30px);line-height:1.2}
 .app-crash-card p{color:var(--text-muted);font-size:14px;line-height:1.6}
+.snapshot-setting-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px}
+.snapshot-update-ready{border-color:color-mix(in srgb,var(--accent) 40%,var(--border));color:var(--accent)}
 
 @media(max-width:767px){
   html,body,#root{width:100%;height:100%;min-width:0;overflow:hidden}
@@ -159,6 +161,7 @@
   .stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
   .stat-tile{min-width:0}
   .setting-row{align-items:flex-start;flex-direction:column;gap:10px;padding:14px 0}
+  .snapshot-setting-actions{width:100%;justify-content:flex-start}
   .setting-row small{max-width:100%;font-size:11px;line-height:1.5}
   .setting-row>.segmented{max-width:100%;overflow-x:auto}
   .drawer-scrim{z-index:48}
@@ -210,12 +213,7 @@
 @media(max-width:767px){
   .subpage{overflow-x:visible}
   .mobile-result-cards{flex:1 1 auto;min-height:0}
-  .snapshot-update-chip{top:auto;right:auto;bottom:calc(64px + env(safe-area-inset-bottom));left:50%;z-index:39;width:max-content;max-width:calc(100vw - 24px);min-height:48px;height:auto;padding:10px 14px;transform:translateX(-50%);white-space:normal;overflow-wrap:anywhere;line-height:1.25;text-align:center}
   .screener-heading .heading-actions .button,.subpage-heading>.button,.empty-actions>.button{min-width:0;max-width:100%;height:auto;white-space:normal;overflow-wrap:anywhere;line-height:1.2}
-}
-
-@media(max-width:380px){
-  .snapshot-update-chip{left:8px;right:8px;width:auto;max-width:none;transform:none}
 }
 
 /* Keep the filter control and count in separate grid cells on narrow screens. */
