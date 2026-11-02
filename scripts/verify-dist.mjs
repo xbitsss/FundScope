@@ -5,7 +5,7 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 const dist = resolve(process.argv[2] ?? 'dist');
 const limit = Number(process.env.MAX_SITE_SIZE_MB ?? 950) * 1024 * 1024;
 const manifest = JSON.parse(await readFile(join(dist, 'data', 'manifest.json'), 'utf8'));
-const files = [manifest.index, manifest.encryption?.canary, ...Object.values(manifest.histories ?? {})].filter(Boolean);
+const files = [manifest.index, manifest.encryption?.canary, ...Object.values(manifest.details ?? {}), ...Object.values(manifest.histories ?? {})].filter(Boolean);
 let total = 0;
 for (const ref of files) {
   if (!ref || typeof ref.path !== 'string' || ref.path.length === 0) {

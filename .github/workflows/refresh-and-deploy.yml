@@ -69,6 +69,7 @@ jobs:
               echo '::error::Add DATA_PASSPHRASE (at least 16 characters) in Settings > Secrets and variables > Actions.'
               exit 1
             fi
+            node scripts/passphrase-check.mjs
           fi
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

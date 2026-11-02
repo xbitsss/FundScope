@@ -1,5 +1,11 @@
 # Build status
 
+## Performance/unlock implementation · partial
+
+- **Built:** Worker-backed bitset screening with a retained reference implementation, columnar v2 static snapshots, a worker-based unlock flow, stable KEK/DEK wrapping, optional per-device unlock, scoped static caching, lazy detail/history reads, and passphrase generation/validation.
+- **Verified:** Seeded equivalence tests, 14,200-fund engine test, v1/v2 snapshot reader and crypto tests, passphrase policy tests, type-check and production builds are being run for this change. Node-side results are recorded separately from device/browser claims.
+- **Not claimed:** No 390×844 Chromium run with 4× CPU throttle, Playwright interaction suite, 55 fps scroll measurement, memory/INP/CLS measurement, or measured ≤1 s unlock p95 exists in this workspace. Desktop persistence is still the existing payload repository, and the web engine still receives structured Fund objects after columnar decoding.
+
 ## Milestone 0 · Data-source spike — complete
 
 - **Built:** Live-source notes, AMFI parser fixture and MFapi search fixture.

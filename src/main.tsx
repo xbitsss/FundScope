@@ -19,4 +19,9 @@ import './ui/styles/snapshot-gate.css';
 import './ui/styles/mobile-ux.css';
 
 const app = import.meta.env.MODE === 'web' ? <WebSnapshotGate /> : <App />;
+if (import.meta.env.MODE === 'web' && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL }).catch(() => undefined);
+  }, { once: true });
+}
 ReactDOM.createRoot(document.getElementById('root')!).render(<React.StrictMode><AppErrorBoundary>{app}</AppErrorBoundary></React.StrictMode>);

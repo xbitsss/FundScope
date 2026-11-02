@@ -11,7 +11,7 @@ export interface ScreenerFilters{search:string;structure:StructureFilter[];plan:
 export interface FunnelStep{step:string;remaining:number}
 export interface FilterResult{rows:Fund[];funnel:FunnelStep[]}
 export interface FacetOption{value:string;count:number;disabled:boolean}
-const arrayFacets:ArrayFacet[]=['management','structure','plan','option','assetClasses','riskBands','philosophies','specialities','groups','categories','amcs','statuses','lifecycle'];
+export const arrayFacets:ArrayFacet[]=['management','structure','plan','option','assetClasses','riskBands','philosophies','specialities','groups','categories','amcs','statuses','lifecycle'];
 export interface ScreenerView extends FilterResult{facets:Record<ArrayFacet,FacetOption[]>}
 
 /** Empty selection means no restriction; defaults define the starter research universe. */
@@ -21,7 +21,7 @@ const explicit=(value:string,choices:readonly string[])=>choices.includes(value)
 const structureOf=(fund:Fund):StructureFilter=>explicit(fund.structure,['open','close','interval','unknown']) as StructureFilter;
 const planOf=(fund:Fund):PlanFilter=>explicit(fund.plan,['Direct','Regular']) as PlanFilter;
 const optionOf=(fund:Fund):OptionFilter=>/growth/i.test(fund.option??'')&&!/bonus/i.test(fund.option??'')?'Growth':/idcw|dividend|payout|reinvest/i.test(fund.option??'')?'IDCW':'Unknown';
-const getValues=(fund:Fund,facet:ArrayFacet):string[]=>{
+export const getValues=(fund:Fund,facet:ArrayFacet):string[]=>{
   if(facet==='management')return [fund.management||'Not specified'];
   if(facet==='structure')return [structureOf(fund)];
   if(facet==='plan')return [planOf(fund)];
@@ -40,8 +40,8 @@ const matches=(fund:Fund,facet:ArrayFacet,selection:readonly string[])=>!selecti
 const freshness=(fund:Fund,now:number)=>Number.isFinite(fund.navDate)&&now/86_400_000-fund.navDate<=10;
 function acceptsMetric(fund:Fund,filter:MetricFilter){const value=fund.metrics?.[filter.id];if(typeof value!=='number'||!Number.isFinite(value))return !(filter.excludeMissing||filter.min!==null||filter.max!==null);return (filter.min===null||value>=filter.min)&&(filter.max===null||value<=filter.max);}
 const queryMatches=(fund:Fund,query:string)=>[fund.name,fund.amc,fund.subCategory,fund.group,fund.category,fund.option,fund.plan,fund.assetClass,fund.management,...(fund.speciality??[])].map(norm).some(value=>value.includes(query));
-const ordered:Array<[string,ScreenerFacet]>=[['Management','management'],['Structure','structure'],['Asset','assetClasses'],['Risk (category-implied)','riskBands'],['Investment philosophy','philosophies'],['Investment speciality','specialities'],['Category group','groups'],['Category','categories'],['Fund house','amcs'],['Classification status','statuses'],['Lifecycle','lifecycle'],['Plan','plan'],['Option','option'],['NAV freshness','hideStaleNav'],['Metrics','metrics'],['Search','search']];
-const fixedValues:Partial<Record<ArrayFacet,string[]>>={management:['Active','Passive','Not specified'],structure:['open','close','interval','unknown'],plan:['Direct','Regular','Unknown'],option:['Growth','IDCW','Unknown'],riskBands:['Low','Medium','High','Not specified'],philosophies:['Value','Contra','Blend/Unspecified'],lifecycle:['active','dormant']};
+export const ordered:Array<[string,ScreenerFacet]>=[['Management','management'],['Structure','structure'],['Asset','assetClasses'],['Risk (category-implied)','riskBands'],['Investment philosophy','philosophies'],['Investment speciality','specialities'],['Category group','groups'],['Category','categories'],['Fund house','amcs'],['Classification status','statuses'],['Lifecycle','lifecycle'],['Plan','plan'],['Option','option'],['NAV freshness','hideStaleNav'],['Metrics','metrics'],['Search','search']];
+export const fixedValues:Partial<Record<ArrayFacet,string[]>>={management:['Active','Passive','Not specified'],structure:['open','close','interval','unknown'],plan:['Direct','Regular','Unknown'],option:['Growth','IDCW','Unknown'],riskBands:['Low','Medium','High','Not specified'],philosophies:['Value','Contra','Blend/Unspecified'],lifecycle:['active','dormant']};
 function checkFund(fund:Fund,filters:ScreenerFilters,facet:ScreenerFacet,now:number):boolean{
   if(arrayFacets.includes(facet as ArrayFacet))return matches(fund,facet as ArrayFacet,filters[facet as ArrayFacet]);
   if(facet==='hideStaleNav')return !filters.hideStaleNav||freshness(fund,now);

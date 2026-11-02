@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-11-02T13:27:10.556Z",
+  "environment": {
+    "runtime": "Node v24.15.0",
+    "cpuThrottle": "none",
+    "browser": null,
+    "viewport": null
+  },
+  "dataset": {
+    "count": 14200,
+    "synthetic": true,
+    "source": "deterministically generated records shaped like Fund; no user or market data"
+  },
+  "caveat": "This is a reproducible reference-core baseline, not the requested throttled-phone Playwright measurement. The repo has no Playwright dependency, browser binary, or local snapshot available in this workspace.",
+  "interactions": {
+    "searchKeystroke": {
+      "samples": 42,
+      "p50Ms": 489.002199999999,
+      "p95Ms": 715.3996999999981,
+      "maxMs": 1134.77
+    },
+    "categoryToggle": {
+      "samples": 3,
+      "p50Ms": 293.65599999999904,
+      "p95Ms": 293.65599999999904,
+      "maxMs": 336.32760000000053
+    },
+    "metricRange": {
+      "samples": 3,
+      "p50Ms": 307.27640000000065,
+      "p95Ms": 307.27640000000065,
+      "maxMs": 340.2956000000013
+    }
+  }
+}

@@ -16,8 +16,10 @@ import { previousConflictFrom, reconcileClassification } from '../src/domain/tax
 import { TAXONOMY_VERSION } from '../src/domain/taxonomy/assetClass.ts';
 import { applySebiHoldingHeuristics } from '../src/domain/disclosures/sebiHeuristics.ts';
 import { benchmarkConfig } from '../src/config/benchmarks.ts';
-import { decodeUtf8, decryptSnapshotFile, encodeUtf8, gunzipBytes, gzipBytes, encryptSnapshotFile, deriveSnapshotKey, randomBytes, toBase64, sha256Hex } from '../src/adapters/crypto/snapshotCrypto.ts';
+import { decodeUtf8, decryptSnapshotFile, encodeUtf8, gunzipBytes, gzipBytes, encryptSnapshotFile, encryptSnapshotFileV2, deriveSnapshotKey, generateSnapshotDek, importSnapshotDek, unwrapSnapshotDek, wrapSnapshotDek, randomBytes, toBase64, sha256Hex } from '../src/adapters/crypto/snapshotCrypto.ts';
 import { nextRetryAt, orderHistoryQueue } from './historyQueue.mjs';
+import { isPassphraseStrong } from '../scripts/passphrase-policy.mjs';
+import { encodeFundColumns, extractFundDetail } from '../src/adapters/snapshot/columnar.ts';
 
 globalThis.crypto ??= webcrypto;
 const env = parseEnv();
@@ -46,7 +48,9 @@ function runTar(args, cwd, capture = false) {
 
 for (const line of redactedEnvSummary(env)) logger(line);
 await mkdir(dataDir, { recursive: true });
-if (env.ENCRYPT_DATA && (!env.DATA_PASSPHRASE || env.DATA_PASSPHRASE.length < 16)) fail('Encrypted hosting requires DATA_PASSPHRASE (16+ characters).');
+const allowWeakPassphrase = process.env.ALLOW_WEAK_PASSPHRASE === 'true' && process.env.CI !== 'true' && process.env.GITHUB_ACTIONS !== 'true';
+if (env.ENCRYPT_DATA && !isPassphraseStrong(env.DATA_PASSPHRASE) && !allowWeakPassphrase) fail('DATA_PASSPHRASE is estimated below 80 bits. Run `pnpm passphrase:generate` and save the result in GitHub Actions Secrets. ALLOW_WEAK_PASSPHRASE=true is local-only and disabled in CI.');
+if (allowWeakPassphrase && !isPassphraseStrong(env.DATA_PASSPHRASE)) logger('WARNING: weak passphrase override is active for local testing only.');
 const repo = env.GITHUB_REPOSITORY || process.env.GITHUB_REPOSITORY || '';
 const visibility = env.GITHUB_REPOSITORY_VISIBILITY || (repo.toLowerCase() === 'xbitsss/fundscope' ? 'public' : undefined);
 if (visibility === 'private' && process.env.ALLOW_PRIVATE_REPO !== 'true') fail('A private repository needs ALLOW_PRIVATE_REPO=true for Pages hosting.');
@@ -376,53 +380,63 @@ async function loadVerifiedBenchmarkSeries(database) {
   return seriesById;
 }
 
-async function buildSnapshot(funds, sourceStatus, disclosures) {
+async function buildSnapshot(funds, sourceStatus, disclosures, database) {
   await rm(snapshotDir, { recursive: true, force: true });
   const dataRoot = join(snapshotDir, 'data');
   const salt = randomBytes(16);
-  // Snapshot files are immutable and cacheable. Use the fresh KDF salt as a
-  // per-snapshot URL namespace so a browser cannot pair a new manifest with
-  // cached ciphertext from the previous deployment.
-  const snapshotId = Array.from(salt, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  const snapshotId = Array.from(randomBytes(16), (byte) => byte.toString(16).padStart(2, '0')).join('');
   const snapshotPrefix = `data/${snapshotId}/`;
   await mkdir(join(snapshotDir, snapshotPrefix, 'nav'), { recursive: true });
-  const iterations = 600_000;
-  const key = await deriveSnapshotKey(env.DATA_PASSPHRASE, salt, iterations);
-  const refs = {};
-  async function writeEncrypted(path, text) {
-    const compressed = await gzipBytes(encodeUtf8(text));
-    const encrypted = await encryptSnapshotFile(key, path, compressed);
+  await mkdir(join(snapshotDir, snapshotPrefix, 'detail'), { recursive: true });
+  const iterations = 100_000;
+  const wrapKek = await deriveSnapshotKey(env.DATA_PASSPHRASE, salt, iterations);
+  const oldKeyState = database.getLocalState('snapshot-data-key', null);
+  const keyId = oldKeyState?.version === 2 && typeof oldKeyState.keyId === 'string' ? oldKeyState.keyId : Array.from(randomBytes(16), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  let dekRaw;
+  if (oldKeyState?.version === 2 && oldKeyState.wrappedDek && oldKeyState.salt && Number.isInteger(oldKeyState.iterations)) {
+    const oldKek = await deriveSnapshotKey(env.DATA_PASSPHRASE, Uint8Array.from(Buffer.from(oldKeyState.salt, 'base64')), oldKeyState.iterations);
+    try { dekRaw = (await unwrapSnapshotDek(oldKek, keyId, oldKeyState.wrappedDek)).raw; }
+    catch { fail('The stored snapshot data key could not be unwrapped. Check DATA_PASSPHRASE; data-key state was not replaced.'); }
+  } else dekRaw = generateSnapshotDek();
+  const wrappedDek = await wrapSnapshotDek(wrapKek, keyId, dekRaw);
+  const dek = await importSnapshotDek(dekRaw);
+  dekRaw.fill(0);
+  database.setLocalState('snapshot-data-key', { version: 2, keyId, salt: toBase64(salt), iterations, wrappedDek });
+  const historyRefs = {};
+  const detailRefs = {};
+  async function writeEncrypted(path, content) {
+    const plaintext = typeof content === 'string' ? encodeUtf8(content) : content;
+    const compressed = await gzipBytes(plaintext);
+    const encrypted = await encryptSnapshotFileV2(dek, path, snapshotId, compressed);
     const localPath = join(snapshotDir, path);
     await mkdir(dirname(localPath), { recursive: true });
     await writeFile(localPath, encrypted);
-    return { path, sha256: await sha256Hex(encrypted), encryptedBytes: encrypted.byteLength, compressedBytes: compressed.byteLength, plaintextBytes: Buffer.byteLength(text) };
+    return { path, sha256: await sha256Hex(encrypted), encryptedBytes: encrypted.byteLength, compressedBytes: compressed.byteLength, plaintextBytes: plaintext.byteLength };
   }
-  const canaryPath = `${snapshotPrefix}canary.enc`;
-  const canaryEncrypted = await encryptSnapshotFile(key, canaryPath, encodeUtf8('FundScope snapshot canary:v1'));
-  await writeFile(join(snapshotDir, canaryPath), canaryEncrypted);
-  const canary = { path: canaryPath, sha256: await sha256Hex(canaryEncrypted), encryptedBytes: canaryEncrypted.byteLength, compressedBytes: 0, plaintextBytes: 28, plaintext: 'FundScope snapshot canary:v1' };
-  const fundsWithoutHistory = funds.map(({ history, ...fund }) => ({ ...fund, history: [] }));
-  const index = await writeEncrypted(`${snapshotPrefix}index.enc`, JSON.stringify(fundsWithoutHistory));
+  const indexBytes = encodeFundColumns(funds);
+  const index = await writeEncrypted(`${snapshotPrefix}index.cols.enc`, indexBytes);
+  if (index.compressedBytes > 1.5 * 1024 * 1024) fail(`Columnar index exceeds the 1.5 MiB compressed budget (${(index.compressedBytes / 1048576).toFixed(2)} MiB).`);
   for (let start = 0; start < funds.length; start += 100) {
     for (const fund of funds.slice(start, start + 100)) {
-      if (!fund.history?.length) continue;
-      const path = `${snapshotPrefix}nav/${fund.code}.enc`;
-      refs[String(fund.code)] = await writeEncrypted(path, JSON.stringify(fund.history));
+      const detail = extractFundDetail(fund);
+      if (Object.keys(detail).length) { const detailPath = `${snapshotPrefix}detail/${fund.code}.enc`; detailRefs[String(fund.code)] = await writeEncrypted(detailPath, JSON.stringify(detail)); }
+      if (fund.history?.length) { const historyPath = `${snapshotPrefix}nav/${fund.code}.enc`; historyRefs[String(fund.code)] = await writeEncrypted(historyPath, JSON.stringify(fund.history)); }
     }
-    if (start && start % 1000 === 0) logger(`Encrypted NAV packs: ${Math.min(start + 100, funds.length).toLocaleString('en-IN')} / ${funds.length.toLocaleString('en-IN')}`);
+    if (start && start % 1000 === 0) logger(`Encrypted detail/history packs: ${Math.min(start + 100, funds.length).toLocaleString('en-IN')} / ${funds.length.toLocaleString('en-IN')}`);
   }
   const manifest = {
-    schema_version: 1,
+    schema_version: 2,
     snapshot_id: snapshotId,
     generated_at: new Date().toISOString(),
     data_as_of: sourceStatus.dataAsOf,
     fund_count: funds.length,
-    history_count: Object.keys(refs).length,
+    history_count: Object.keys(historyRefs).length,
     coverage: (() => { const preferred = funds.filter((fund) => fund.structure === 'open' && fund.plan === 'Direct' && /growth/i.test(fund.option ?? '') && !/bonus/i.test(fund.option ?? '')); const withHistory = (items) => items.filter((fund) => fund.history?.length).length; const failed = funds.filter((fund) => fund.historyStatus === 'failed').length; const pending = funds.filter((fund) => !fund.history?.length && fund.historyStatus !== 'failed').length; return { open_direct_growth: { total: preferred.length, with_history: withHistory(preferred) }, all: { total: funds.length, with_history: withHistory(funds) }, failed, pending, last_run: new Date().toISOString() }; })(),
     disclosures,
-    encryption: { algorithm: 'AES-256-GCM', kdf: 'PBKDF2-SHA256', iterations, salt: toBase64(salt), canary },
+    encryption: { version: 2, algorithm: 'AES-256-GCM', kdf: 'PBKDF2-SHA256', iterations, salt: toBase64(salt), keyId, wrappedDek },
     index,
-    histories: refs,
+    details: detailRefs,
+    histories: historyRefs,
   };
   await writeFile(join(dataRoot, 'manifest.json'), JSON.stringify(manifest));
   const archivePath = join(dataDir, 'snapshot.tar.gz');
@@ -431,7 +445,7 @@ async function buildSnapshot(funds, sourceStatus, disclosures) {
   const siteBytes = await directorySize(dataRoot);
   const siteLimit = env.MAX_SITE_SIZE_MB * 1024 * 1024;
   if (siteBytes > siteLimit) fail(`Static snapshot is ${(siteBytes / 1048576).toFixed(1)} MiB; MAX_SITE_SIZE_MB is ${env.MAX_SITE_SIZE_MB}.`);
-  logger(`Snapshot prepared: ${funds.length.toLocaleString('en-IN')} funds, ${Object.keys(refs).length.toLocaleString('en-IN')} histories, ${(siteBytes / 1048576).toFixed(1)} MiB expanded, ${(archiveSize / 1048576).toFixed(1)} MiB archive.`);
+  logger(`Snapshot prepared: ${funds.length.toLocaleString('en-IN')} funds, ${Object.keys(historyRefs).length.toLocaleString('en-IN')} histories, ${(index.compressedBytes / 1048576).toFixed(2)} MiB columnar index, ${(siteBytes / 1048576).toFixed(1)} MiB expanded, ${(archiveSize / 1048576).toFixed(1)} MiB archive.`);
 }
 
 async function directorySize(directory) {
@@ -607,8 +621,8 @@ async function main() {
     database.setSourceState('amfi_disclosures', { fetchedAt: Date.now(), dataAsOf: status.dataAsOf, status: 'ok', detail: `AAUM: ${aumMessage}; TER: ${terMessage}.` });
     const integrity = database.integrityCheck();
     if (integrity.length !== 1 || integrity[0] !== 'ok') fail('SQLite integrity check failed before publishing.');
+    await buildSnapshot(funds, status, { aum: aumMessage, ter: terMessage }, database);
     database.close();
-    await buildSnapshot(funds, status, { aum: aumMessage, ter: terMessage });
     await encryptDatabase();
     await publishRelease();
     logger(`Refresh finished in ${Math.round((Date.now() - runStarted) / 1000)} seconds.`);

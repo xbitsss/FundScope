@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 2,
+  "capturedAt": "2026-11-02T14:21:21.726Z",
+  "environment": {
+    "runtime": "Node v24.15.0",
+    "cpuThrottle": "none",
+    "browser": null,
+    "viewport": null
+  },
+  "dataset": {
+    "count": 14200,
+    "synthetic": true,
+    "source": "deterministically generated records shaped like Fund; no user or market data"
+  },
+  "caveat": "This is a reproducible Node measurement of the reference implementation and the in-process optimized engine on synthetic data. It is not a throttled-phone browser measurement: this workspace has no Playwright dependency, browser binary, or local snapshot. Worker message transfer, paint latency, scroll FPS, heap, INP and CLS are not represented.",
+  "reference": {
+    "searchKeystroke": {
+      "samples": 28,
+      "p50Ms": 746.4182000000001,
+      "p95Ms": 953.9713000000011,
+      "maxMs": 1009.2929999999997
+    },
+    "categoryToggle": {
+      "samples": 2,
+      "p50Ms": 585.6851999999999,
+      "p95Ms": 585.6851999999999,
+      "maxMs": 684.3276000000005
+    },
+    "metricRange": {
+      "samples": 2,
+      "p50Ms": 666.3941000000013,
+      "p95Ms": 666.3941000000013,
+      "maxMs": 776.6291000000019
+    }
+  },
+  "optimizedEngine": {
+    "build": {
+      "samples": [
+        517.2086999999992,
+        428.9465,
+        379.8859000000002
+      ],
+      "firstMs": 517.2086999999992,
+      "p50Ms": 428.9465,
+      "firstPhaseBreakdown": {
+        "allocation": 41.39570000000003,
+        "row-columns": 408.1167999999998,
+        "facets": 64.76509999999962,
+        "category-tree": 0.6382000000003245
+      }
+    },
+    "interactions": {
+      "searchKeystroke": {
+        "samples": 28,
+        "p50Ms": 6.030300000002171,
+        "p95Ms": 9.0653999999995,
+        "maxMs": 84.02130000000034
+      },
+      "categoryToggle": {
+        "samples": 2,
+        "p50Ms": 2.07050000000163,
+        "p95Ms": 2.07050000000163,
+        "maxMs": 3.8074999999989814
+      },
+      "metricRange": {
+        "samples": 2,
+        "p50Ms": 6.534799999997631,
+        "p95Ms": 6.534799999997631,
+        "maxMs": 7.588299999999435
+      },
+      "sortSwitch": {
+        "samples": 2,
+        "p50Ms": 4.2546000000002095,
+        "p95Ms": 4.2546000000002095,
+        "maxMs": 29.768199999998615
+      }
+    }
+  }
+}

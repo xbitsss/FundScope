@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join, resolve } from 'node:path';
+import { isPassphraseStrong } from './passphrase-policy.mjs';
 
 const scanRoots = ['src', 'config', 'etl', 'scripts', '.github', 'dist'];
 const allowedExtensions = new Set(['.js', '.mjs', '.cjs', '.ts', '.tsx', '.json', '.html', '.css', '.yml', '.yaml', '.md', '.txt', '.toml']);
@@ -12,6 +13,14 @@ const signatures = [
   /\bsk-(?:proj-)?[A-Za-z0-9_-]{24,}\b/,
 ];
 const findings = [];
+if (process.env.ENCRYPT_DATA !== 'false' && process.env.DATA_PASSPHRASE && !isPassphraseStrong(process.env.DATA_PASSPHRASE)) {
+  console.error('DATA_PASSPHRASE is estimated below 80 bits (value omitted).');
+  process.exitCode = 1;
+}
+if (process.env.ALLOW_WEAK_PASSPHRASE === 'true' && (process.env.CI === 'true' || process.env.GITHUB_ACTIONS === 'true')) {
+  console.error('ALLOW_WEAK_PASSPHRASE is forbidden in CI and GitHub Actions.');
+  process.exitCode = 1;
+}
 async function scan(path) {
   let entries;
   try { entries = await readdir(path, { withFileTypes: true }); } catch { return; }

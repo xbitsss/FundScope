@@ -97,6 +97,23 @@
   overflow: hidden;
 }
 
+.checklist-popover-inline {
+  position: static;
+  z-index: auto;
+  inset: auto;
+  width: 100%;
+  max-height: none;
+  margin-top: 8px;
+  padding: 8px;
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.checklist-popover-inline .checklist-items {
+  max-height: min(34vh, 320px);
+  overscroll-behavior: contain;
+}
+
 .checklist-actions {
   display: flex;
   justify-content: space-between;
