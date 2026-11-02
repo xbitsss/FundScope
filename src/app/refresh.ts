@@ -77,15 +77,15 @@ export async function loadSchemeHistoryWithMetadata(code:number, signal?:AbortSi
   throw lastError instanceof Error?lastError:new Error('Unable to load MFapi history.');
 }
 export async function loadSchemeHistory(code:number,signal?:AbortSignal):Promise<NavPoint[]>{return (await loadSchemeHistoryWithMetadata(code,signal)).history;}
-export async function backfillSelectedHistory(funds:Fund[],codes:number[],onProgress:(done:number,total:number)=>void):Promise<{updated:Fund[],loaded:number,failed:number}>{
-  let next=0,done=0,loaded=0,failed=0;const byCode=new Map(funds.map(fund=>[fund.code,fund]));const updated:Fund[]=[];
+export async function backfillSelectedHistory(funds:Fund[],codes:number[],onProgress:(done:number,total:number)=>void):Promise<{updated:Fund[],loaded:number,failed:number,failedCodes:Array<{code:number;reason:string}>}>{
+  let next=0,done=0,loaded=0;const byCode=new Map(funds.map(fund=>[fund.code,fund]));const updated:Fund[]=[];const failedCodes:Array<{code:number;reason:string}>=[];
   const worker=async()=>{
     while(true){
       const index=next++;if(index>=codes.length)return;
       const code=codes[index]!;
       try{const result=await loadSchemeHistoryWithMetadata(code);const fund=byCode.get(code);if(!fund)throw new Error('Scheme is not in the local catalog.');fund.history=result.history;fund.historyFetchedAt=result.fetchedAt;
         if(result.schemeCategory){const s1ObservedAt=fund.classDetail?.s1.observedAt??fund.navDate*86_400_000;const consensus=reconcileClassification({...(fund.schemeMaster?.categoryRaw?{s0:{categoryRaw:fund.schemeMaster.categoryRaw,observedAt:s1ObservedAt,schemeMaster:{categoryRaw:fund.schemeMaster.categoryRaw,closureDate:fund.schemeMaster.closureDate}}}:{}),s1:{categoryRaw:fund.category,headerRaw:fund.headerRaw,observedAt:s1ObservedAt,structure:fund.structure,navDate:fund.navDate,newestNavDate:fund.navDate},s2:{categoryRaw:result.schemeCategory,observedAt:result.fetchedAt},s3:fund.classDetail?.s3?{categoryRaw:fund.classDetail.s3.categoryRaw,observedAt:fund.classDetail.s3.observedAt}:undefined,s4:fund.classDetail?.s4?{categoryRaw:fund.classDetail.s4.categoryRaw,observedAt:fund.classDetail.s4.observedAt}:undefined,schemeName:fund.name,evaluatedAt:result.fetchedAt,previousConflict:previousConflictFrom(fund.classDetail,fund.classStatus),previousReview:fund.classDetail?.review});Object.assign(fund,consensus,{taxonomyVersion:TAXONOMY_VERSION,classificationReason:consensus.reason,classificationProvenance:consensus.provenance});}
-        updated.push(fund);loaded++;}catch{failed++;}
+        updated.push(fund);loaded++;}catch(error){failedCodes.push({code,reason:error instanceof Error?error.message:'NAV history could not be loaded.'});}
       done++;onProgress(done,codes.length);
       if(next<codes.length)await new Promise(resolve=>setTimeout(resolve,120));
     }
@@ -93,6 +93,6 @@ export async function backfillSelectedHistory(funds:Fund[],codes:number[],onProg
   await Promise.all(Array.from({length:Math.min(3,codes.length)},worker));
   // Persist each successfully fetched series immediately. Metric computation runs
   // in the Web Worker in the caller, keeping long NAV loops off the UI thread.
-  if(updated.length)await saveFunds(updated);
-  return {updated,loaded,failed};
+  if(updated.length)try{await saveFunds(updated);}catch{/* Return loaded series to the active session even when persistence is temporarily unavailable. */}
+  return {updated,loaded,failed:failedCodes.length,failedCodes};
 }

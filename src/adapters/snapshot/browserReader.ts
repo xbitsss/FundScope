@@ -258,7 +258,7 @@ export async function loadSnapshotHistories(codes: number[], onProgress?: (done:
               const encrypted = await fetchFile(baseUrl, ref);
               const compressed = await decryptFile(manifest, key, ref.path, encrypted);
               const history = JSON.parse(decodeUtf8(await gunzipBytes(compressed))) as unknown;
-              if (!Array.isArray(history) || history.some((point) => !point || !Number.isInteger(point.date) || !Number.isFinite(point.nav))) throw new Error(`Snapshot history for scheme ${code} is malformed.`);
+              if (!Array.isArray(history) || history.length === 0 || history.some((point) => !point || !Number.isInteger(point.date) || !Number.isFinite(point.nav) || point.nav <= 0)) throw new Error(`Snapshot history for scheme ${code} is malformed or empty.`);
               cached.set(code, history as NavPoint[]); result.set(code, history as NavPoint[]); error = undefined; break;
             } catch (cause) { error = cause; if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 100)); }
           }
