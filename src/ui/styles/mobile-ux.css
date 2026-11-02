@@ -210,6 +210,12 @@
 @media(max-width:767px){
   .subpage{overflow-x:visible}
   .mobile-result-cards{flex:1 1 auto;min-height:0}
+  .snapshot-update-chip{top:auto;right:auto;bottom:calc(64px + env(safe-area-inset-bottom));left:50%;z-index:39;width:max-content;max-width:calc(100vw - 24px);min-height:48px;height:auto;padding:10px 14px;transform:translateX(-50%);white-space:normal;overflow-wrap:anywhere;line-height:1.25;text-align:center}
+  .screener-heading .heading-actions .button,.subpage-heading>.button,.empty-actions>.button{min-width:0;max-width:100%;height:auto;white-space:normal;overflow-wrap:anywhere;line-height:1.2}
+}
+
+@media(max-width:380px){
+  .snapshot-update-chip{left:8px;right:8px;width:auto;max-width:none;transform:none}
 }
 
 /* Keep the filter control and count in separate grid cells on narrow screens. */
