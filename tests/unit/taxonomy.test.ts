@@ -67,7 +67,7 @@ describe('AMFI NAVAll state machine', () => {
 });
 
 describe('classification consensus and audit workflow', () => {
-  it('marks source disagreement for review and only escalates a repeated stale conflict', () => {
+  it('keeps MFapi metadata informational rather than treating it as a classification vote', () => {
     const day = 86_400_000;
     const base = 1_800_000_000_000;
     const first = reconcileClassification({
@@ -75,16 +75,16 @@ describe('classification consensus and audit workflow', () => {
       s2: { categoryRaw: 'Debt Scheme - Corporate Bond Fund', observedAt: base - 4 * day },
       schemeName: 'Example Fund', evaluatedAt: base,
     });
-    expect(first.status).toBe('CONFLICT_STALE');
-    const previousConflict = previousConflictFrom(first.detail, first.status);
-    expect(previousConflict?.count).toBe(1);
+    expect(first.status).toBe('UNCONFIRMED');
+    expect(first.detail.s2?.sourceId).toBe('s2_mfapi');
+    expect(previousConflictFrom(first.detail, first.status)).toBeUndefined();
     const repeated = reconcileClassification({
       s1: { categoryRaw: 'Equity Scheme - Large Cap Fund', observedAt: base + 4 * day },
       s2: { categoryRaw: 'Debt Scheme - Corporate Bond Fund', observedAt: base - 4 * day },
-      schemeName: 'Example Fund', evaluatedAt: base + 4 * day, previousConflict,
+      schemeName: 'Example Fund', evaluatedAt: base + 4 * day,
     });
-    expect(repeated.status).toBe('CONFLICT');
-    expect(repeated.detail.conflictObservations).toBe(2);
+    expect(repeated.status).toBe('UNCONFIRMED');
+    expect(repeated.detail.conflictObservations).toBeUndefined();
   });
 
   it('round trips audit rows while retaining quoted commas and records explicit agreement', () => {

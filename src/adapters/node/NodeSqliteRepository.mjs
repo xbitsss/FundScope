@@ -70,7 +70,25 @@ export class NodeSqliteRepository {
         if (!fund) continue;
         const prior = this.db.prepare('SELECT first_seen_at FROM scheme_master WHERE scheme_code=?').get(row.schemeCode);
         const firstSeenAt = prior?.first_seen_at ?? now;
-        const payload = { ...row, assetClass: fund.assetClass, classRuleId: fund.classRuleId, classStatus: fund.classStatus, classDetail: fund.classDetail, taxonomyVersion: fund.taxonomyVersion, firstSeenAt, lastSeenAt: now };
+        const payload = { ...row, schemeMaster: fund.schemeMaster, assetClass: fund.assetClass, classRuleId: fund.classRuleId, classStatus: fund.classStatus, classDetail: fund.classDetail, taxonomyVersion: fund.taxonomyVersion, firstSeenAt, lastSeenAt: now };
+        upsert.run(row.schemeCode, JSON.stringify(payload), firstSeenAt, now);
+      }
+    });
+    for (let start = 0; start < rows.length; start += 200) transaction(rows.slice(start, start + 200));
+  }
+
+  saveAmfiSchemeMasterRows(rows) {
+    const now = Date.now();
+    const existing = new Map(this.db.prepare('SELECT scheme_code,payload,first_seen_at FROM scheme_master').all().map((row) => [row.scheme_code, row]));
+    const upsert = this.db.prepare(`INSERT INTO scheme_master(scheme_code,payload,first_seen_at,last_seen_at) VALUES(?,?,?,?)
+      ON CONFLICT(scheme_code) DO UPDATE SET payload=excluded.payload,last_seen_at=excluded.last_seen_at`);
+    const transaction = this.db.transaction((batch) => {
+      for (const row of batch) {
+        const prior = existing.get(row.schemeCode);
+        let priorPayload = {};
+        try { priorPayload = prior ? JSON.parse(prior.payload) : {}; } catch {}
+        const firstSeenAt = prior?.first_seen_at ?? now;
+        const payload = { ...priorPayload, schemeCode: row.schemeCode, amfiSchemeMaster: row, firstSeenAt, lastSeenAt: now };
         upsert.run(row.schemeCode, JSON.stringify(payload), firstSeenAt, now);
       }
     });

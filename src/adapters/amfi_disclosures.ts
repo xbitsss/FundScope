@@ -1,7 +1,7 @@
 import type { Fund } from '../domain/types';
 import * as XLSX from 'xlsx';
 
-export type DisclosureRecord={schemeCode:number;aumCr?:number;terPct?:number;source:'AMFI_DISCLOSURE'|'LOCAL_OVERRIDE';asOf?:number};
+export type DisclosureRecord={schemeCode:number;aumCr?:number;terPct?:number;categoryRaw?:string;source:'AMFI_DISCLOSURE'|'LOCAL_OVERRIDE';asOf?:number};
 const objectValue=(value:unknown):Record<string,unknown>|null=>value!==null&&typeof value==='object'&&!Array.isArray(value)?value as Record<string,unknown>:null;
 const numberValue=(value:string|undefined)=>{if(!value)return undefined;const parsed=Number(value.replace(/[₹,%,$,\s]/g,''));return Number.isFinite(parsed)?parsed:undefined;};
 const headerKey=(header:string)=>header.trim().toLowerCase().replace(/[^a-z0-9]+/g,'_');
@@ -19,7 +19,7 @@ export function parseDisclosureCsv(text:string,source:DisclosureRecord['source']
 /** Parses AMFI's official scheme-wise AAUM API payload; output units are crore. */
 export function parseAmfiAverageAumRows(payload:unknown,asOf:number):DisclosureRecord[]{
   const root=objectValue(payload);if(!Array.isArray(root?.data))return [];const records:DisclosureRecord[]=[];
-  for(const houseValue of root.data){const house=objectValue(houseValue);if(!Array.isArray(house?.schemes))continue;for(const schemeValue of house.schemes){const scheme=objectValue(schemeValue);const schemeCode=Number(scheme?.AMFI_Code);const aum=objectValue(scheme?.AverageAumForTheMonth);if(!Number.isInteger(schemeCode)||schemeCode<=0||!aum)continue;const primary=Number(aum.ExcludingFundOfFundsDomesticButIncludingFundOfFundsOverseas??0);const domesticFof=Number(aum.FundOfFundsDomestic??0);const aumCr=primary+domesticFof;if(Number.isFinite(aumCr)&&aumCr>0)records.push({schemeCode,aumCr,source:'AMFI_DISCLOSURE',asOf});}}
+  for(const houseValue of root.data){const house=objectValue(houseValue);if(!Array.isArray(house?.schemes))continue;for(const schemeValue of house.schemes){const scheme=objectValue(schemeValue);const schemeCode=Number(scheme?.AMFI_Code);const aum=objectValue(scheme?.AverageAumForTheMonth);if(!Number.isInteger(schemeCode)||schemeCode<=0||!aum)continue;const primary=Number(aum.ExcludingFundOfFundsDomesticButIncludingFundOfFundsOverseas??0);const domesticFof=Number(aum.FundOfFundsDomestic??0);const aumCr=primary+domesticFof;const rawCategory=scheme?.SchemeCat_Desc??scheme?.Scheme_Category??scheme?.SchemeCategory??scheme?.Category;const categoryRaw=typeof rawCategory==='string'&&rawCategory.trim()?rawCategory.trim():undefined;if(Number.isFinite(aumCr)&&aumCr>0)records.push({schemeCode,aumCr,categoryRaw,source:'AMFI_DISCLOSURE',asOf});}}
   return records;
 }
 

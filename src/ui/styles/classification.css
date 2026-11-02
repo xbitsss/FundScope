@@ -35,3 +35,22 @@
 .classification-why>div b{margin-top:3px}
 .classification-why>div span{color:var(--text-muted);overflow-wrap:anywhere}
 @media(max-width:800px){.classification-page .subpage-heading{align-items:flex-start}.classification-page .subpage-heading .button{white-space:nowrap}.matrix-row{grid-template-columns:minmax(90px,1fr) repeat(4,minmax(90px,.9fr)) 55px;gap:6px}.audit-card .card-title{align-items:flex-start;flex-direction:column}.audit-actions{width:100%}}
+.unclassified-reason,.raw-unmapped{border:1px solid var(--border);border-radius:6px;margin-top:7px;background:var(--surface-2);min-width:0}
+.unclassified-reason>summary,.raw-unmapped>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:8px 10px;cursor:pointer;list-style:none}
+.unclassified-reason>summary::-webkit-details-marker,.raw-unmapped>summary::-webkit-details-marker{display:none}
+.unclassified-reason>summary::after,.raw-unmapped>summary::after{content:'⌄';color:var(--text-muted);font-size:14px;transition:transform .16s ease}
+.unclassified-reason[open]>summary::after,.raw-unmapped[open]>summary::after{transform:rotate(180deg)}
+.unclassified-reason>summary>span:first-child,.reason-counts{display:flex;flex-direction:column;gap:3px;min-width:0}
+.unclassified-reason>summary b,.raw-unmapped>summary{font-size:10px}
+.unclassified-reason>summary small,.reason-counts small{font-size:9px;color:var(--text-muted);overflow-wrap:anywhere}
+.reason-counts{text-align:right;flex:0 0 auto}
+.reason-detail{padding:0 8px 9px;min-width:0}
+.reason-toolbar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:5px 1px;color:var(--text-muted);font-size:9px}
+.classification-provenance{line-height:1.5}
+.classification-drawer .classification-provenance b{color:var(--text)}
+.classification-drawer .classification-provenance span{overflow-wrap:anywhere}
+.raw-unmapped{margin-top:12px}
+.classification-card .card-title>div{min-width:0}
+.classification-card .card-title .audit-actions{justify-content:flex-end}
+.classification-page button:focus-visible,.classification-page summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:640px){.classification-card{padding:11px}.classification-card .card-title{align-items:flex-start;flex-direction:column;gap:8px}.classification-card .card-title .audit-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.unclassified-reason>summary,.raw-unmapped>summary{align-items:flex-start}.reason-counts{max-width:45%;white-space:normal}.reason-toolbar{align-items:flex-start;flex-direction:column}.reason-toolbar .button{min-height:44px}.classification-table{min-width:720px}}

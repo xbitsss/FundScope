@@ -8,7 +8,7 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
     "build:web": "vite build --mode web && node scripts/copy-snapshot.mjs",
-    "check": "tsc -b --pretty false && vite build",
+    "check": "tsc -b --pretty false && vite build && pnpm test:taxonomy-coverage",
     "test": "vitest run",
     "secret-scan": "node scripts/secret-scan.mjs",
     "diagnose:snapshot": "node scripts/diagnose-snapshot.mjs",
@@ -17,6 +17,9 @@
     "etl:run": "node .data/etl-build/cli.mjs",
     "benchmarks:discover": "node scripts/discover-benchmarks.mjs",
     "classify:report": "node scripts/classify-report.mjs",
+    "classify:dump": "vite build --config vite.classify-dump.config.ts && node .data/classify-dump/classify-dump.mjs",
+    "classify:fixture": "node scripts/build-offline-category-fixture.mjs",
+    "test:taxonomy-coverage": "vitest run tests/unit/taxonomyInventory.test.ts",
     "classify:audit-sample": "node scripts/classify-audit-sample.mjs",
     "classify:audit-import": "node scripts/classify-audit-import.mjs",
     "tauri": "tauri"

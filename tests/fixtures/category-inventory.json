@@ -1,0 +1,820 @@
+{
+  "inventoryMode": "offline-c0-reference",
+  "source": "Checked-in AMFI discovery report from 2026-11-01; no live data was fetched.",
+  "activeCountsAvailable": false,
+  "sampleNamesAvailable": false,
+  "schemeRowCount": 14441,
+  "distinctCategoryCount": 101,
+  "reportedPriorHeldOtherCount": 5612,
+  "reportedPriorHeldOtherSource": "User-provided FundScope taxonomy prompt; this is a historical baseline, not a current v3 count.",
+  "categories": [
+    {
+      "categoryRaw": "Children’s Fund - Childrens' Fund",
+      "headerRaw": "Open Ended Schemes(Children’s Fund - Childrens' Fund)",
+      "structure": "open",
+      "schemeCount": 8,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Banking and PSU Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Banking and PSU Fund)",
+      "structure": "open",
+      "schemeCount": 17,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Corporate Bond Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Corporate Bond Fund)",
+      "structure": "open",
+      "schemeCount": 131,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Credit Risk Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Credit Risk Fund)",
+      "structure": "open",
+      "schemeCount": 135,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Dynamic Bond",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Dynamic Bond)",
+      "structure": "open",
+      "schemeCount": 34,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Gilt Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Gilt Fund)",
+      "structure": "open",
+      "schemeCount": 87,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Liquid Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Liquid Fund)",
+      "structure": "open",
+      "schemeCount": 301,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Long Duration Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Long Duration Fund)",
+      "structure": "open",
+      "schemeCount": 2,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Low Duration Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Low Duration Fund)",
+      "structure": "open",
+      "schemeCount": 18,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Medium Duration Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Medium Duration Fund)",
+      "structure": "open",
+      "schemeCount": 56,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Medium to Long Duration Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Medium to Long Duration Fund)",
+      "structure": "open",
+      "schemeCount": 6,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Money Market Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Money Market Fund)",
+      "structure": "open",
+      "schemeCount": 154,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Overnight Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Overnight Fund)",
+      "structure": "open",
+      "schemeCount": 200,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Short Duration Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Short Duration Fund)",
+      "structure": "open",
+      "schemeCount": 71,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Debt Scheme - Ultra Short Duration Fund",
+      "headerRaw": "Open Ended Schemes(Debt Scheme - Ultra Short Duration Fund)",
+      "structure": "open",
+      "schemeCount": 80,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "ELSS",
+      "headerRaw": "Close Ended Schemes(ELSS)",
+      "structure": "close",
+      "schemeCount": 77,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Contra Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Contra Fund)",
+      "structure": "open",
+      "schemeCount": 12,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Dividend Yield Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Dividend Yield Fund)",
+      "structure": "open",
+      "schemeCount": 38,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - ELSS",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - ELSS)",
+      "structure": "open",
+      "schemeCount": 110,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Flexi Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Flexi Cap Fund)",
+      "structure": "open",
+      "schemeCount": 128,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Focused Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Focused Fund)",
+      "structure": "open",
+      "schemeCount": 74,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Large & Mid Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Large & Mid Cap Fund)",
+      "structure": "open",
+      "schemeCount": 101,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Large Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Large Cap Fund)",
+      "structure": "open",
+      "schemeCount": 110,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Mid Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Mid Cap Fund)",
+      "structure": "open",
+      "schemeCount": 81,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Multi Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Multi Cap Fund)",
+      "structure": "open",
+      "schemeCount": 72,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Sectoral/ Thematic",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Sectoral/ Thematic)",
+      "structure": "open",
+      "schemeCount": 725,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Small Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Small Cap Fund)",
+      "structure": "open",
+      "schemeCount": 96,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Scheme - Value Fund",
+      "headerRaw": "Open Ended Schemes(Equity Scheme - Value Fund)",
+      "structure": "open",
+      "schemeCount": 62,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Contra Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Contra Fund)",
+      "structure": "open",
+      "schemeCount": 12,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Dividend Yield Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Dividend Yield Fund)",
+      "structure": "open",
+      "schemeCount": 12,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - ELSS- Tax Saver Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - ELSS- Tax Saver Fund)",
+      "structure": "open",
+      "schemeCount": 86,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Flexi Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Flexi Cap Fund)",
+      "structure": "open",
+      "schemeCount": 60,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Focused Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Focused Fund)",
+      "structure": "open",
+      "schemeCount": 40,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Large & Mid Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Large & Mid Cap Fund)",
+      "structure": "open",
+      "schemeCount": 50,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Large Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Large Cap Fund)",
+      "structure": "open",
+      "schemeCount": 54,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Mid Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Mid Cap Fund)",
+      "structure": "open",
+      "schemeCount": 54,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Multi Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Multi Cap Fund)",
+      "structure": "open",
+      "schemeCount": 58,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Sectoral Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Sectoral Fund)",
+      "structure": "open",
+      "schemeCount": 80,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Small Cap Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Small Cap Fund)",
+      "structure": "open",
+      "schemeCount": 47,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Thematic Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Thematic Fund)",
+      "structure": "open",
+      "schemeCount": 230,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Equity Schemes - Value Fund",
+      "headerRaw": "Open Ended Schemes(Equity Schemes - Value Fund)",
+      "structure": "open",
+      "schemeCount": 42,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Exchange Traded Funds (ETFs) - Debt ETF",
+      "headerRaw": "Open Ended Schemes(Exchange Traded Funds (ETFs) - Debt ETF)",
+      "structure": "open",
+      "schemeCount": 12,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Exchange Traded Funds (ETFs) - Equity ETF",
+      "headerRaw": "Open Ended Schemes(Exchange Traded Funds (ETFs) - Equity ETF)",
+      "structure": "open",
+      "schemeCount": 86,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Exchange Traded Funds (ETFs) - ETFs investing overseas",
+      "headerRaw": "Open Ended Schemes(Exchange Traded Funds (ETFs) - ETFs investing overseas)",
+      "structure": "open",
+      "schemeCount": 2,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Exchange Traded Funds (ETFs) - Gold ETF",
+      "headerRaw": "Open Ended Schemes(Exchange Traded Funds (ETFs) - Gold ETF)",
+      "structure": "open",
+      "schemeCount": 10,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Exchange Traded Funds (ETFs) - Hybrid ETF",
+      "headerRaw": "Open Ended Schemes(Exchange Traded Funds (ETFs) - Hybrid ETF)",
+      "structure": "open",
+      "schemeCount": 1,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Exchange Traded Funds (ETFs) - Other ETF",
+      "headerRaw": "Open Ended Schemes(Exchange Traded Funds (ETFs) - Other ETF)",
+      "structure": "open",
+      "schemeCount": 25,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Exchange Traded Funds (ETFs) - Silver ETF",
+      "headerRaw": "Open Ended Schemes(Exchange Traded Funds (ETFs) - Silver ETF)",
+      "structure": "open",
+      "schemeCount": 8,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Fund of Funds Scheme (Domestic) - Fund of Funds Scheme (Domestic)",
+      "headerRaw": "Open Ended Schemes(Fund of Funds Scheme (Domestic) - Fund of Funds Scheme (Domestic))",
+      "structure": "open",
+      "schemeCount": 253,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Gilt",
+      "headerRaw": "Open Ended Schemes(Gilt)",
+      "structure": "open",
+      "schemeCount": 13,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Growth",
+      "headerRaw": "Close Ended Schemes(Growth)",
+      "structure": "close",
+      "schemeCount": 245,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Scheme - Aggressive Hybrid Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Scheme - Aggressive Hybrid Fund)",
+      "structure": "open",
+      "schemeCount": 73,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Scheme - Arbitrage Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Scheme - Arbitrage Fund)",
+      "structure": "open",
+      "schemeCount": 118,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Scheme - Balanced Hybrid Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Scheme - Balanced Hybrid Fund)",
+      "structure": "open",
+      "schemeCount": 4,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Scheme - Conservative Hybrid Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Scheme - Conservative Hybrid Fund)",
+      "structure": "open",
+      "schemeCount": 72,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Scheme - Dynamic Asset Allocation or Balanced Advantage",
+      "headerRaw": "Open Ended Schemes(Hybrid Scheme - Dynamic Asset Allocation or Balanced Advantage)",
+      "structure": "open",
+      "schemeCount": 94,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Scheme - Equity Savings",
+      "headerRaw": "Open Ended Schemes(Hybrid Scheme - Equity Savings)",
+      "structure": "open",
+      "schemeCount": 131,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Scheme - Multi Asset Allocation",
+      "headerRaw": "Open Ended Schemes(Hybrid Scheme - Multi Asset Allocation)",
+      "structure": "open",
+      "schemeCount": 82,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Schemes - Aggressive Hybrid Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Schemes - Aggressive Hybrid Fund)",
+      "structure": "open",
+      "schemeCount": 120,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Schemes - Arbitrage Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Schemes - Arbitrage Fund)",
+      "structure": "open",
+      "schemeCount": 79,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Schemes - Balanced Advantage Fund/ Dynamic Asset Allocation",
+      "headerRaw": "Open Ended Schemes(Hybrid Schemes - Balanced Advantage Fund/ Dynamic Asset Allocation)",
+      "structure": "open",
+      "schemeCount": 66,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Schemes - Balanced Hybrid Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Schemes - Balanced Hybrid Fund)",
+      "structure": "open",
+      "schemeCount": 15,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Schemes - Conservative Hybrid Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Schemes - Conservative Hybrid Fund)",
+      "structure": "open",
+      "schemeCount": 75,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Schemes - Equity Savings Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Schemes - Equity Savings Fund)",
+      "structure": "open",
+      "schemeCount": 41,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Hybrid Schemes - Multi Asset Allocation Fund",
+      "headerRaw": "Open Ended Schemes(Hybrid Schemes - Multi Asset Allocation Fund)",
+      "structure": "open",
+      "schemeCount": 70,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income",
+      "headerRaw": "Close Ended Schemes(Income)",
+      "structure": "close",
+      "schemeCount": 4523,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - 10-year Constant Maturity Gilt Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - 10-year Constant Maturity Gilt Fund)",
+      "structure": "open",
+      "schemeCount": 42,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Banking and PSU Debt Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Banking and PSU Debt Fund)",
+      "structure": "open",
+      "schemeCount": 158,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Corporate Bond Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Corporate Bond Fund)",
+      "structure": "open",
+      "schemeCount": 85,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Credit Risk Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Credit Risk Fund)",
+      "structure": "open",
+      "schemeCount": 37,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Dynamic Term Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Dynamic Term Fund)",
+      "structure": "open",
+      "schemeCount": 175,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Fixed Term Plan",
+      "headerRaw": "Close Ended Schemes(Income/Debt Oriented Schemes - Fixed Term Plan)",
+      "structure": "close",
+      "schemeCount": 8,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Floating Interest Rates Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Floating Interest Rates Fund)",
+      "structure": "open",
+      "schemeCount": 119,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Gilt Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Gilt Fund)",
+      "structure": "open",
+      "schemeCount": 70,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Liquid Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Liquid Fund)",
+      "structure": "open",
+      "schemeCount": 200,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Long Term Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Long Term Fund)",
+      "structure": "open",
+      "schemeCount": 70,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Medium Term Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Medium Term Fund)",
+      "structure": "open",
+      "schemeCount": 117,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Medium to Long Term Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Medium to Long Term Fund)",
+      "structure": "open",
+      "schemeCount": 98,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Money Market Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Money Market Fund)",
+      "structure": "open",
+      "schemeCount": 91,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Other Debt Scheme",
+      "headerRaw": "Close Ended Schemes(Income/Debt Oriented Schemes - Other Debt Scheme)",
+      "structure": "close",
+      "schemeCount": 9,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Overnight Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Overnight Fund)",
+      "structure": "open",
+      "schemeCount": 109,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Sectoral Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Sectoral Fund)",
+      "structure": "open",
+      "schemeCount": 8,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Short Term Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Short Term Fund)",
+      "structure": "open",
+      "schemeCount": 202,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Ultra Short Term Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Ultra Short Term Fund)",
+      "structure": "open",
+      "schemeCount": 224,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Income/Debt Oriented Schemes - Ultra Short to Short Term Fund",
+      "headerRaw": "Open Ended Schemes(Income/Debt Oriented Schemes - Ultra Short to Short Term Fund)",
+      "structure": "open",
+      "schemeCount": 256,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Index Funds - Debt Funds",
+      "headerRaw": "Open Ended Schemes(Index Funds - Debt Funds)",
+      "structure": "open",
+      "schemeCount": 83,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Index Funds - Equity Funds",
+      "headerRaw": "Open Ended Schemes(Index Funds - Equity Funds)",
+      "structure": "open",
+      "schemeCount": 255,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Index Funds - Hybrid Fund",
+      "headerRaw": "Open Ended Schemes(Index Funds - Hybrid Fund)",
+      "structure": "open",
+      "schemeCount": 9,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Life Cycle Funds - Life Cycle Fund with Maturity of 10 Years",
+      "headerRaw": "Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 10 Years)",
+      "structure": "open",
+      "schemeCount": 3,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Life Cycle Funds - Life Cycle Fund with Maturity of 15 Years",
+      "headerRaw": "Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 15 Years)",
+      "structure": "open",
+      "schemeCount": 3,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Life Cycle Funds - Life Cycle Fund with Maturity of 30 Years",
+      "headerRaw": "Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 30 Years)",
+      "structure": "open",
+      "schemeCount": 4,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Life Cycle Funds - Life Cycle Fund with Maturity of 5 Years",
+      "headerRaw": "Open Ended Schemes(Life Cycle Funds - Life Cycle Fund with Maturity of 5 Years)",
+      "structure": "open",
+      "schemeCount": 3,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Other Scheme - FoF Domestic",
+      "headerRaw": "Open Ended Schemes(Other Scheme - FoF Domestic)",
+      "structure": "open",
+      "schemeCount": 337,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Other Scheme - FoF Overseas",
+      "headerRaw": "Open Ended Schemes(Other Scheme - FoF Overseas)",
+      "structure": "open",
+      "schemeCount": 119,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Other Scheme - Gold ETF",
+      "headerRaw": "Open Ended Schemes(Other Scheme - Gold ETF)",
+      "structure": "open",
+      "schemeCount": 15,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Other Scheme - Index Funds",
+      "headerRaw": "Open Ended Schemes(Other Scheme - Index Funds)",
+      "structure": "open",
+      "schemeCount": 1047,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Other Scheme - Other  ETFs",
+      "headerRaw": "Open Ended Schemes(Other Scheme - Other  ETFs)",
+      "structure": "open",
+      "schemeCount": 208,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Overseas Fund of Funds - Fund of Funds investing overseas",
+      "headerRaw": "Open Ended Schemes(Overseas Fund of Funds - Fund of Funds investing overseas)",
+      "structure": "open",
+      "schemeCount": 70,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Solution Oriented Scheme - Children’s Fund",
+      "headerRaw": "Open Ended Schemes(Solution Oriented Scheme - Children’s Fund)",
+      "structure": "open",
+      "schemeCount": 31,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Solution Oriented Scheme - Retirement Fund",
+      "headerRaw": "Open Ended Schemes(Solution Oriented Scheme - Retirement Fund)",
+      "structure": "open",
+      "schemeCount": 84,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    },
+    {
+      "categoryRaw": "Solution Oriented Schemes ** - Retirement Fund",
+      "headerRaw": "Open Ended Schemes(Solution Oriented Schemes ** - Retirement Fund)",
+      "structure": "open",
+      "schemeCount": 63,
+      "activeCount": null,
+      "sampleSchemeNames": []
+    }
+  ]
+}

@@ -8,11 +8,11 @@ import type { Fund } from '../domain/types';
 import type { ReasonDetail } from '../domain/governance/reasons';
 
 const verificationSchema=z.object({verified_at:z.string().min(1),scheme_name:z.string().min(1),isin:z.string().nullable(),first_nav_date:z.string().min(1),last_nav_date:z.string().min(1),checks:z.array(z.string().min(1)).min(1)});
-const proxySchema=z.object({id:z.string().min(1),display_name:z.string().min(1),asset_class:z.enum(['equity','debt','hybrid','liquid','other']),kind:z.literal('proxy'),status:z.enum(['verified','unresolved']),provider:z.literal('mfapi'),scheme_code:z.number().int().positive().nullable(),verification:verificationSchema.nullable()});
+const proxySchema=z.object({id:z.string().min(1),display_name:z.string().min(1),asset_class:z.enum(['equity','debt','hybrid','solution','commodity','liquid','other']),kind:z.literal('proxy'),status:z.enum(['verified','unresolved']),provider:z.literal('mfapi'),scheme_code:z.number().int().positive().nullable(),verification:verificationSchema.nullable()});
 const componentSchema=z.object({benchmark_id:z.string().min(1),weight:z.number().positive().max(1)});
-const compositeSchema=z.object({id:z.string().min(1),display_name:z.string().min(1),asset_class:z.enum(['equity','debt','hybrid','liquid','other']),kind:z.literal('composite'),status:z.enum(['verified','unresolved']),components:z.array(componentSchema),rebalance:z.literal('daily')});
+const compositeSchema=z.object({id:z.string().min(1),display_name:z.string().min(1),asset_class:z.enum(['equity','debt','hybrid','solution','commodity','liquid','other']),kind:z.literal('composite'),status:z.enum(['verified','unresolved']),components:z.array(componentSchema),rebalance:z.literal('daily')});
 const benchmarkSchema=z.union([proxySchema,compositeSchema]);
-const categorySchema=z.object({asset_class:z.enum(['equity','debt','hybrid','liquid','other']),sub_category:z.string().min(1),benchmark_id:z.string().min(1).nullable(),fit:z.enum(['category_standard','broad_approx']).nullable()});
+const categorySchema=z.object({asset_class:z.enum(['equity','debt','hybrid','solution','commodity','liquid','other']),sub_category:z.string().min(1),benchmark_id:z.string().min(1).nullable(),fit:z.enum(['category_standard','broad_approx']).nullable()});
 const configSchema=z.object({schema_version:z.literal(1),taxonomy_version:z.number().int().positive(),max_series_age_days:z.number().int().positive().default(10),benchmarks:z.array(benchmarkSchema),category_map:z.array(categorySchema),overrides:z.array(z.object({scheme_code:z.number().int().positive(),benchmark_id:z.string().min(1),reason:z.string().min(1)})).default([])});
 export type BenchmarkConfig=z.infer<typeof configSchema>;
 export type BenchmarkDefinition=z.infer<typeof benchmarkSchema>;

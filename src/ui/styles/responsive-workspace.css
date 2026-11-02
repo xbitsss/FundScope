@@ -1,5 +1,7 @@
 html,body,#root{width:100%;height:100%;overflow:hidden}
-.app-shell{width:100vw;height:100vh;height:100dvh;min-width:0;overflow:hidden}
+.app-shell{width:100%;height:100vh;height:100dvh;min-width:0;overflow:hidden}
+html,body,#root,.workspace,.main-content,.subpage,.screener-layout,.results-area{min-width:0}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .workspace,.main-content,.screener-layout,.results-area{min-width:0;min-height:0}
 .main-content{flex:1;overflow-x:hidden;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior:contain}
 .screener-layout{flex:1}
@@ -59,4 +61,11 @@ html,body,#root{width:100%;height:100%;overflow:hidden}
   .result-count strong{font-size:13px}
   .result-count span{font-size:9px}
   .table-bottom{font-size:8px}
+}
+@media(max-width:767px){
+  body{font-size:15px}
+  input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{font-size:16px}
+  .app-shell{min-width:0;width:100%}
+  .mobile-result-cards{flex:1 1 auto}
+  .subpage{overflow-x:visible}
 }

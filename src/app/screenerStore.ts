@@ -1,6 +1,6 @@
-import { defaultScreenerFilters, migrateSavedScreen, type ScreenerFilters } from '../domain/screener/filters';
+import { defaultScreenerFilters, migrateSavedScreen, type ArrayFacet, type ScreenerFilters } from '../domain/screener/filters';
 export interface SavedScreenV2 { version:2; name:string; filters:ScreenerFilters; sort:{id:string;desc:boolean}; density:'comfortable'|'compact'; riskWindow:1|3|5 }
-export type ScreenerAction={type:'patch';patch:Partial<ScreenerFilters>}|{type:'reset'}|{type:'setFacet';facet:keyof Pick<ScreenerFilters,'structure'|'plan'|'option'|'categories'|'amcs'|'assetClasses'|'statuses'>;values:string[]};
+export type ScreenerAction={type:'patch';patch:Partial<ScreenerFilters>}|{type:'reset'}|{type:'setFacet';facet:ArrayFacet;values:string[]};
 export const screenerReducer=(state:ScreenerFilters,action:ScreenerAction):ScreenerFilters=>action.type==='reset'?{...defaultScreenerFilters}:action.type==='patch'?{...state,...action.patch}: {...state,[action.facet]:[...new Set(action.values)]};
 export function toSavedScreenV2(name:string,filters:ScreenerFilters,sort:SavedScreenV2['sort'],density:SavedScreenV2['density'],riskWindow:SavedScreenV2['riskWindow']):SavedScreenV2{return {version:2,name,filters,sort,density,riskWindow};}
-export function fromSavedScreen(value:unknown):ScreenerFilters {if(value&&typeof value==='object'&&(value as {version?:unknown}).version===2){const filters=(value as {filters?:unknown}).filters;if(filters&&typeof filters==='object')return {...defaultScreenerFilters,...filters} as ScreenerFilters;}return migrateSavedScreen(value);}
+export function fromSavedScreen(value:unknown):ScreenerFilters {if(value&&typeof value==='object'&&(value as {version?:unknown}).version===2){const filters=(value as {filters?:unknown}).filters;if(filters&&typeof filters==='object')return migrateSavedScreen({...defaultScreenerFilters,...filters});}return migrateSavedScreen(value);}

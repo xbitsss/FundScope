@@ -5,12 +5,15 @@ import { spawn } from 'node:child_process';
 import { parseEnv, redactedEnvSummary } from '../src/config/env.ts';
 import { NodeSqliteRepository } from '../src/adapters/node/NodeSqliteRepository.mjs';
 import { parseAmfiNavAllFile, parsedAmfiNavToFunds } from '../src/domain/parse/amfi.ts';
+import { parseAmfiSchemeMasterCsv } from '../src/domain/parse/amfiSchemeMaster.ts';
+import { joinAmfiSchemeMaster } from '../src/domain/taxonomy/schemeMasterJoin.ts';
 import { parseMfapiHistory } from '../src/domain/parse/mfapi.ts';
 import { computeMetricBundle, applyLocalMetricBundle } from '../src/domain/metrics/compute.ts';
 import { applyRelativeMetrics } from '../src/domain/metrics/relative.ts';
 import { markMissingDisclosureMetrics, parseAmfiAverageAumRows, parseDisclosureCsv, applyDisclosures } from '../src/adapters/amfi_disclosures.ts';
 import { parseSchemeName } from '../src/domain/parse/schemeName.ts';
 import { previousConflictFrom, reconcileClassification } from '../src/domain/taxonomy/consensus.ts';
+import { TAXONOMY_VERSION } from '../src/domain/taxonomy/assetClass.ts';
 import { applySebiHoldingHeuristics } from '../src/domain/disclosures/sebiHeuristics.ts';
 import { benchmarkConfig } from '../src/config/benchmarks.ts';
 import { decodeUtf8, decryptSnapshotFile, encodeUtf8, gunzipBytes, gzipBytes, encryptSnapshotFile, deriveSnapshotKey, randomBytes, toBase64, sha256Hex } from '../src/adapters/crypto/snapshotCrypto.ts';
@@ -142,29 +145,30 @@ async function mapWithConcurrency(items, concurrency, fn) {
 
 function mergeCatalog(previous, incoming) {
   const prior = new Map(previous.map((fund) => [fund.code, fund]));
+  const newestNavDate = Math.max(0, ...incoming.map((fund) => fund.navDate));
   return incoming.map((fund) => {
     const saved = prior.get(fund.code);
-    if (!saved) return { ...fund, history: [] };
+    const masterCategory = fund.schemeMaster?.categoryRaw?.trim();
+    const classification = reconcileClassification({
+      ...(masterCategory ? { s0: { categoryRaw: masterCategory, observedAt: Date.now(), schemeMaster: { categoryRaw: masterCategory, closureDate: fund.schemeMaster.closureDate } } } : {}),
+      s1: { categoryRaw: fund.category, headerRaw: fund.headerRaw, observedAt: fund.navDate * 86_400_000, structure: fund.structure, navDate: fund.navDate, newestNavDate },
+      s2: saved?.classDetail?.s2 ? { categoryRaw: saved.classDetail.s2.categoryRaw, observedAt: saved.classDetail.s2.observedAt } : undefined,
+      s3: saved?.classDetail?.s3 ? { categoryRaw: saved.classDetail.s3.categoryRaw, observedAt: saved.classDetail.s3.observedAt } : undefined,
+      s4: saved?.classDetail?.s4 ? { categoryRaw: saved.classDetail.s4.categoryRaw, observedAt: saved.classDetail.s4.observedAt } : undefined,
+      schemeName: fund.name, evaluatedAt: Date.now(),
+      previousConflict: previousConflictFrom(saved?.classDetail, saved?.classStatus),
+      previousReview: saved?.classDetail?.review,
+    });
+    const taxonomy = { assetClass: classification.assetClass, classRuleId: classification.ruleId, classStatus: classification.status, classDetail: classification.detail, subCategory: classification.subCategory, taxonomyVersion: 3, group: classification.group, management: classification.management, riskBand: classification.riskBand, philosophy: classification.philosophy, speciality: classification.speciality, lifecycle: classification.lifecycle, classificationReason: classification.reason, classificationProvenance: classification.provenance };
+    if (!saved) return { ...fund, ...taxonomy, history: [] };
     const history = [...(saved.history ?? [])];
     if (!history.some((point) => point.date === fund.navDate)) history.push({ date: fund.navDate, nav: fund.nav });
     history.sort((a, b) => a.date - b.date);
     const parsed = parseSchemeName(fund.name, fund.plan, fund.option);
-    const classification = reconcileClassification({
-      s1: { categoryRaw: fund.category, headerRaw: fund.headerRaw, observedAt: fund.navDate * 86_400_000 },
-      s2: saved.classDetail?.s2 ? { categoryRaw: saved.classDetail.s2.categoryRaw, observedAt: saved.classDetail.s2.observedAt } : undefined,
-      s3: saved.classDetail?.s3 ? { categoryRaw: saved.classDetail.s3.categoryRaw, observedAt: saved.classDetail.s3.observedAt } : undefined,
-      schemeName: fund.name,
-      evaluatedAt: Date.now(),
-      previousConflict: previousConflictFrom(saved.classDetail, saved.classStatus),
-      previousReview: saved.classDetail?.review,
-    });
     const result = {
       ...fund,
-      assetClass: classification.assetClass,
-      classRuleId: classification.ruleId,
-      classStatus: classification.status,
-      classDetail: classification.detail,
-      subCategory: classification.subCategory,
+      ...taxonomy,
+      schemeMaster: fund.schemeMaster ?? saved.schemeMaster,
       plan: saved.plan !== 'Unknown' ? saved.plan : parsed.plan,
       option: saved.option !== 'Unknown' ? saved.option : parsed.option,
       history,
@@ -176,7 +180,7 @@ function mergeCatalog(previous, incoming) {
       metricFlags: { ...saved.metricFlags },
       metricProvenance: { ...saved.metricProvenance },
       metricAsOf: { ...saved.metricAsOf },
-      // Reconcile fresh S1/S2/S3 observations on every catalog refresh. Only an
+      // Reconcile fresh AMFI observations on every catalog refresh. Only an
       // explicit human review is allowed to keep a prior status/detail.
       classStatus: saved.classDetail?.review ? saved.classStatus : classification.status,
       classDetail: saved.classDetail?.review ? saved.classDetail : classification.detail,
@@ -215,7 +219,22 @@ async function ingestAum(funds) {
   const report = await (await request(`${rootUrl}?fyId=${encodeURIComponent(firstYear.id)}&periodId=${encodeURIComponent(period.id)}&strType=Typewise&MF_ID=0`, {}, 'AMFI AAUM report')).json();
   const records = parseAmfiAverageAumRows(report, asOf);
   if (!records.length) fail('AMFI AAUM report did not include scheme-code keyed values.');
-  return { funds: applyDisclosures(funds, records), records: records.length, period: period.period };
+  const newestNavDate = Math.max(0, ...funds.map((fund) => fund.navDate));
+  const byCode = new Map(records.map((record) => [record.schemeCode, record]));
+  const updated = applyDisclosures(funds, records).map((fund) => {
+    const record = byCode.get(fund.code); if (!record?.categoryRaw) return fund;
+    const observedAt = asOf * 86_400_000;
+    const classification = reconcileClassification({
+      ...(fund.schemeMaster?.categoryRaw ? { s0: { categoryRaw: fund.schemeMaster.categoryRaw, observedAt, schemeMaster: { categoryRaw: fund.schemeMaster.categoryRaw, closureDate: fund.schemeMaster.closureDate } } } : {}),
+      s1: { categoryRaw: fund.category, headerRaw: fund.headerRaw, observedAt: fund.classDetail?.s1.observedAt ?? fund.navDate * 86_400_000, structure: fund.structure, navDate: fund.navDate, newestNavDate },
+      s2: fund.classDetail?.s2 ? { categoryRaw: fund.classDetail.s2.categoryRaw, observedAt: fund.classDetail.s2.observedAt } : undefined,
+      s3: fund.classDetail?.s3 ? { categoryRaw: fund.classDetail.s3.categoryRaw, observedAt: fund.classDetail.s3.observedAt } : undefined,
+      s4: { categoryRaw: record.categoryRaw, observedAt }, schemeName: fund.name, evaluatedAt: Date.now(),
+      previousConflict: previousConflictFrom(fund.classDetail, fund.classStatus), previousReview: fund.classDetail?.review,
+    });
+    return { ...fund, assetClass: classification.assetClass, classRuleId: classification.ruleId, taxonomyVersion: TAXONOMY_VERSION, classStatus: classification.status, classDetail: classification.detail, subCategory: classification.subCategory, group: classification.group, management: classification.management, riskBand: classification.riskBand, philosophy: classification.philosophy, speciality: classification.speciality, lifecycle: classification.lifecycle, lifecycleReason: classification.lifecycleReason, classificationReason: classification.reason, classificationProvenance: classification.provenance };
+  });
+  return { funds: updated, records: records.length, period: period.period };
 }
 
 async function ingestTer(funds) {
@@ -266,15 +285,17 @@ async function ingestTer(funds) {
     const signal = classifications.get(fund.code);
     if (!signal) return fund;
     const consensus = reconcileClassification({
-      s1: { categoryRaw: fund.category, headerRaw: fund.headerRaw, observedAt: fund.classDetail?.s1.observedAt ?? fund.navDate * 86_400_000 },
+      ...(fund.schemeMaster?.categoryRaw ? { s0: { categoryRaw: fund.schemeMaster.categoryRaw, observedAt: fund.classDetail?.s1.observedAt ?? fund.navDate * 86_400_000, schemeMaster: { categoryRaw: fund.schemeMaster.categoryRaw, closureDate: fund.schemeMaster.closureDate } } } : {}),
+      s1: { categoryRaw: fund.category, headerRaw: fund.headerRaw, observedAt: fund.classDetail?.s1.observedAt ?? fund.navDate * 86_400_000, structure: fund.structure, navDate: fund.navDate, newestNavDate: fund.navDate },
       s2: fund.classDetail?.s2 ? { categoryRaw: fund.classDetail.s2.categoryRaw, observedAt: fund.classDetail.s2.observedAt } : undefined,
       s3: signal,
+      s4: fund.classDetail?.s4 ? { categoryRaw: fund.classDetail.s4.categoryRaw, observedAt: fund.classDetail.s4.observedAt } : undefined,
       schemeName: fund.name,
       evaluatedAt: Date.now(),
       previousConflict: previousConflictFrom(fund.classDetail, fund.classStatus),
       previousReview: fund.classDetail?.review,
     });
-    return { ...fund, assetClass: consensus.assetClass, classRuleId: consensus.ruleId, classStatus: consensus.status, classDetail: consensus.detail, subCategory: consensus.subCategory };
+    return { ...fund, assetClass: consensus.assetClass, classRuleId: consensus.ruleId, taxonomyVersion: TAXONOMY_VERSION, classStatus: consensus.status, classDetail: consensus.detail, subCategory: consensus.subCategory, group: consensus.group, management: consensus.management, riskBand: consensus.riskBand, philosophy: consensus.philosophy, speciality: consensus.speciality, lifecycle: consensus.lifecycle, lifecycleReason: consensus.lifecycleReason, classificationReason: consensus.reason, classificationProvenance: consensus.provenance };
   });
   return { funds: applyDisclosures(classified, [...records.values()]), records: records.size, month };
 }
@@ -500,9 +521,25 @@ async function main() {
     const response = await request('https://portal.amfiindia.com/spages/NAVAll.txt', {}, 'AMFI NAVAll');
     const parsed = parseAmfiNavAllFile(await response.text());
     if (!parsed.diagnostics.shapeValid || !parsed.schemes.length) fail(`AMFI catalog shape check failed (${parsed.diagnostics.parsedRowCount}/${parsed.diagnostics.candidateRowCount}).`);
-    funds = mergeCatalog(funds, parsedAmfiNavToFunds(parsed));
+    let masterRows = []; let masterWarning = '';
+    try {
+      const masterResponse = await request('https://portal.amfiindia.com/DownloadSchemeData_Po.aspx?mf=0', {}, 'AMFI Scheme Master');
+      const masterParsed = parseAmfiSchemeMasterCsv(await masterResponse.text());
+      if (!masterParsed.diagnostics.shapeValid) fail(`AMFI Scheme Master shape check failed (${masterParsed.diagnostics.parsedRowCount}/${masterParsed.diagnostics.candidateRowCount}).`);
+      masterRows = masterParsed.schemes;
+    } catch (error) { masterWarning = error instanceof Error ? error.message : 'source unavailable'; logger(`AMFI Scheme Master unavailable; NAVAll classification will be used for this refresh: ${masterWarning}`); }
+    const masterJoin = joinAmfiSchemeMaster(parsed.schemes, masterRows);
+    const priorByCode = new Map(funds.map((fund) => [fund.code, fund]));
+    const catalogRows = parsedAmfiNavToFunds(parsed).map((fund) => {
+      const prior = priorByCode.get(fund.code); const joined = masterJoin.rows.get(fund.code);
+      const schemeMaster = joined ? { name: joined.master.name, schemeType: joined.master.schemeType, categoryRaw: joined.master.categoryRaw, navName: joined.master.navName, minimumAmount: joined.master.minimumAmount, launchDate: joined.master.launchDate, closureDate: joined.master.closureDate, isinGrowth: joined.master.isinGrowth, isinReinvestment: joined.master.isinReinvestment, joinMethod: joined.joinMethod } : prior?.schemeMaster;
+      return schemeMaster ? { ...fund, schemeMaster } : fund;
+    });
+    funds = mergeCatalog(funds, catalogRows);
     database.saveFunds(funds);
     database.saveSchemeMasterRows(parsed.schemes, funds);
+    database.saveAmfiSchemeMasterRows(masterRows);
+    logger(masterRows.length ? `AMFI Scheme Master join: ${masterJoin.diagnostics.joined.toLocaleString('en-IN')}/${masterJoin.diagnostics.navRows.toLocaleString('en-IN')} NAVAll rows (${masterJoin.diagnostics.bySchemeCode} by scheme code, ${masterJoin.diagnostics.byIsin} by ISIN); ${masterJoin.diagnostics.orphanNavCodes.length} NAVAll and ${masterJoin.diagnostics.orphanMasterCodes.length} Scheme Master orphans.` : `AMFI Scheme Master join unavailable: ${masterWarning || 'no rows'}.`);
     const asOf = Math.max(...funds.map((fund) => fund.navDate));
     const fetchedAt = Date.now();
     database.setSourceState('amfi_nav', { fetchedAt, dataAsOf: asOf * 86_400_000, status: 'ok', detail: `${funds.length.toLocaleString('en-IN')} schemes loaded from AMFI NAVAll.` });
@@ -522,19 +559,20 @@ async function main() {
         const history = [...historyByDate].sort(([left], [right]) => left - right).map(([date, nav]) => ({ date, nav }));
         const historyFetchedAt = Date.now();
         const classification = result.schemeCategory ? reconcileClassification({
-          s1: { categoryRaw: fund.category, headerRaw: fund.headerRaw, observedAt: fund.classDetail?.s1.observedAt ?? fund.navDate * 86_400_000 },
+          ...(fund.schemeMaster?.categoryRaw ? { s0: { categoryRaw: fund.schemeMaster.categoryRaw, observedAt: fund.classDetail?.s1.observedAt ?? fund.navDate * 86_400_000, schemeMaster: { categoryRaw: fund.schemeMaster.categoryRaw, closureDate: fund.schemeMaster.closureDate } } } : {}),
+          s1: { categoryRaw: fund.category, headerRaw: fund.headerRaw, observedAt: fund.classDetail?.s1.observedAt ?? fund.navDate * 86_400_000, structure: fund.structure, navDate: fund.navDate, newestNavDate: fund.navDate },
           s2: { categoryRaw: result.schemeCategory, observedAt: historyFetchedAt },
           s3: fund.classDetail?.s3 ? { categoryRaw: fund.classDetail.s3.categoryRaw, observedAt: fund.classDetail.s3.observedAt } : undefined,
+          s4: fund.classDetail?.s4 ? { categoryRaw: fund.classDetail.s4.categoryRaw, observedAt: fund.classDetail.s4.observedAt } : undefined,
           schemeName: fund.name,
           evaluatedAt: historyFetchedAt,
           previousConflict: previousConflictFrom(fund.classDetail, fund.classStatus),
           previousReview: fund.classDetail?.review,
         }) : null;
-        // AMFI's NAV header is the sole sub-category source. MFapi's category is
-        // retained as the S2 classification signal but must never relabel a fund.
+        // MFapi remains informational and does not affect the AMFI-only class.
         const status = { attempts: 0, fetchedAt: historyFetchedAt, lastError: null, nextRetryAt: null };
         database.setHistoryStatus(fund.code, 'ok', status);
-        updates.set(fund.code, { ...fund, history, historyFetchedAt, historyStatus: 'ok', historyAttempts: 0, historyLastError: undefined, historyNextRetryAt: undefined, ...(classification ? { assetClass: classification.assetClass, classRuleId: classification.ruleId, classStatus: classification.status, classDetail: classification.detail } : {}) });
+        updates.set(fund.code, { ...fund, history, historyFetchedAt, historyStatus: 'ok', historyAttempts: 0, historyLastError: undefined, historyNextRetryAt: undefined, ...(classification ? { assetClass: classification.assetClass, classRuleId: classification.ruleId, classStatus: classification.status, classDetail: classification.detail, subCategory: classification.subCategory, group: classification.group, management: classification.management, riskBand: classification.riskBand, philosophy: classification.philosophy, speciality: classification.speciality, lifecycle: classification.lifecycle, classificationReason: classification.reason, classificationProvenance: classification.provenance } : {}) });
       } catch (error) {
         failed++;
         const attempts = (fund.historyAttempts ?? 0) + 1; const message = error instanceof Error ? error.message : 'request failed';

@@ -135,6 +135,35 @@
   min-height: 31px;
 }
 
+.category-tree-asset + .category-tree-asset {
+  border-top: 1px solid var(--border);
+}
+
+.category-tree-asset-heading {
+  padding-inline: 3px;
+}
+
+.category-tree-asset-heading b {
+  font-size: 11px;
+}
+
+.category-tree-group {
+  margin-left: 14px;
+  padding-left: 7px;
+  border-left: 1px solid var(--border);
+}
+
+.category-tree-group-heading {
+  min-height: 30px;
+  font-size: 10px;
+}
+
+.category-tree-group-heading small,
+.category-tree-asset-heading small {
+  margin-left: 3px;
+  color: var(--text-muted);
+}
+
 .checklist-group-toggle {
   display: grid;
   place-items: center;
@@ -196,6 +225,20 @@
   border-color: var(--accent);
   background: var(--accent);
   box-shadow: inset 0 0 0 3px var(--surface);
+}
+
+.group-checkbox-wrap input:indeterminate + .custom-check {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.group-checkbox-wrap input:indeterminate + .custom-check::after {
+  content: "";
+  display: block;
+  width: 7px;
+  height: 2px;
+  margin: 5px auto;
+  background: var(--accent);
 }
 
 .checklist-group-title small,

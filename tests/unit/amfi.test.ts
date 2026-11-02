@@ -8,7 +8,7 @@ describe('AMFI NAV parser',()=>{
     const sample=readFileSync(new URL('../fixtures/amfi-nav-sample.txt',import.meta.url),'utf8');
     const funds=parseAmfiNavAll(sample);
     expect(funds).toHaveLength(4);
-    expect(funds[0]).toMatchObject({code:129008,amc:'Franklin Templeton Mutual Fund',structure:'open',assetClass:'debt',classRuleId:'debt_scheme',subCategory:'Banking and PSU',plan:'Direct',nav:25.3336});
+    expect(funds[0]).toMatchObject({code:129008,amc:'Franklin Templeton Mutual Fund',structure:'open',assetClass:'debt',classRuleId:'AMFI_LEAF_BANKING_PSU',subCategory:'Banking & PSU',management:'Active',plan:'Direct',nav:25.3336});
     expect(funds.find(f=>f.code===129009)?.option).toBe('IDCW');
     expect(funds.find(f=>f.code===130947)).toMatchObject({amc:'ICICI Prudential Mutual Fund',plan:'Unknown',structure:'open'});
   });

@@ -1,6 +1,6 @@
 {
-  "taxonomy_version": 2,
-  "status": "production v2 built from the live C0 category inventory",
+  "taxonomy_version": 3,
+  "status": "legacy compatibility map; taxonomy-tree.json is the v3 source of truth",
   "family_aliases": [
     { "alias": "Equity Schemes", "canonical": "Equity Scheme" },
     { "alias": "Hybrid Schemes", "canonical": "Hybrid Scheme" },

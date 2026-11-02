@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "taxonomy_version": 3,
+  "active_nav_days": 10,
+  "dormant_nav_days": 90,
+  "assets": [
+    { "id": "equity", "label": "Equity", "groups": [
+      { "id": "market_cap", "label": "Market-cap", "categories": ["Large Cap", "Mid Cap", "Small Cap", "Multi Cap", "Large & Mid Cap", "Flexi Cap"] },
+      { "id": "strategy", "label": "Strategy", "categories": ["Value", "Contra", "Dividend Yield", "Focused"] },
+      { "id": "thematic", "label": "Thematic", "categories": ["Sectoral/Thematic"] },
+      { "id": "passive", "label": "Index & passive", "categories": ["Equity Index Fund", "Equity ETF", "International ETF"] },
+      { "id": "tax_saving", "label": "Tax saving", "categories": ["ELSS"] }
+    ] },
+    { "id": "debt", "label": "Debt", "groups": [
+      { "id": "overnight_liquid", "label": "Overnight & Liquid", "categories": ["Overnight", "Liquid"] },
+      { "id": "ultra_short_money", "label": "Ultra-short & Money", "categories": ["Ultra Short Duration", "Ultra Short to Short Term", "Low Duration", "Money Market"] },
+      { "id": "short_medium", "label": "Short & Medium", "categories": ["Short Duration", "Medium Duration", "Medium to Long Duration", "Fixed Maturity Plan", "Close-ended income"] },
+      { "id": "long_dynamic", "label": "Long & Dynamic", "categories": ["Long Duration", "Dynamic Bond", "Gilt", "Gilt 10Y Constant Duration"] },
+      { "id": "credit", "label": "Credit", "categories": ["Corporate Bond", "Credit Risk", "Banking & PSU", "Other Debt", "Sectoral Debt"] },
+      { "id": "floating", "label": "Floating", "categories": ["Floating Rate"] },
+      { "id": "passive", "label": "Index & passive", "categories": ["Debt Index Fund", "Debt ETF"] }
+    ] },
+    { "id": "hybrid", "label": "Hybrid", "groups": [
+      { "id": "equity_leaning", "label": "Equity-leaning", "categories": ["Aggressive Hybrid", "Balanced Hybrid", "Equity Savings"] },
+      { "id": "debt_leaning", "label": "Debt-leaning", "categories": ["Conservative Hybrid"] },
+      { "id": "allocation", "label": "Allocation", "categories": ["Multi Asset Allocation", "Dynamic Asset Allocation / Balanced Advantage", "Hybrid Index Fund", "Hybrid ETF", "Capital Protection"] },
+      { "id": "arbitrage", "label": "Arbitrage", "categories": ["Arbitrage"] }
+    ] },
+    { "id": "solution", "label": "Solution-oriented", "groups": [
+      { "id": "goal_based", "label": "Goal-based", "categories": ["Retirement", "Children's", "Pension", "Life Cycle"] }
+    ] },
+    { "id": "commodity", "label": "Gold/Silver", "groups": [
+      { "id": "precious_metals", "label": "Precious metals", "categories": ["Gold", "Silver"] }
+    ] },
+    { "id": "liquid", "label": "Liquid", "groups": [
+      { "id": "cash_management", "label": "Cash management", "categories": ["Liquid", "Overnight"] }
+    ] },
+    { "id": "other", "label": "Unclassified", "groups": [
+      { "id": "unclassified", "label": "Unclassified", "categories": ["Not specified"] }
+    ] }
+  ],
+  "facets": {
+    "management": ["Active", "Passive", "Not specified"],
+    "structure": ["open", "close", "interval", "unknown"],
+    "risk_band": ["Low", "Medium", "High", "Not specified"],
+    "philosophy": ["Value", "Contra", "Blend/Unspecified"],
+    "speciality": ["ETF", "Fund of Funds", "Index", "Fixed Maturity Plan", "Capital Protection", "International", "Sectoral/Thematic", "Solution-oriented", "Gold/Silver"],
+    "lifecycle": ["active", "dormant"]
+  },
+  "risk_band_rules": [
+    { "pattern": "^(Overnight|Liquid|Money Market)$", "value": "Low", "id": "category_risk_low" },
+    { "pattern": "^(Ultra Short Duration|Low Duration|Short Duration|Medium Duration|Corporate Bond|Banking & PSU|Conservative Hybrid)$", "value": "Medium", "id": "category_risk_medium" },
+    { "pattern": ".*", "value": "High", "id": "category_risk_high" }
+  ],
+  "aliases": {
+    "subcategory": {
+      "large cap fund": "Large Cap", "mid cap fund": "Mid Cap", "small cap fund": "Small Cap", "multi cap fund": "Multi Cap", "large and mid cap fund": "Large & Mid Cap", "large & mid cap fund": "Large & Mid Cap", "flexi cap fund": "Flexi Cap", "value fund": "Value", "contra fund": "Contra", "dividend yield fund": "Dividend Yield", "focused fund": "Focused", "thematic fund": "Sectoral/Thematic", "sectoral/thematic fund": "Sectoral/Thematic", "elss": "ELSS", "elss fund": "ELSS", "overnight fund": "Overnight", "liquid fund": "Liquid", "ultra short duration fund": "Ultra Short Duration", "low duration fund": "Low Duration", "money market fund": "Money Market", "short duration fund": "Short Duration", "medium duration fund": "Medium Duration", "medium to long duration fund": "Medium to Long Duration", "long duration fund": "Long Duration", "dynamic bond fund": "Dynamic Bond", "gilt fund": "Gilt", "gilt with 10 year constant duration": "Gilt 10Y Constant Duration", "gilt with 10 year constant duration fund": "Gilt 10Y Constant Duration", "corporate bond fund": "Corporate Bond", "credit risk fund": "Credit Risk", "banking and psu fund": "Banking & PSU", "banking and psu debt fund": "Banking & PSU", "floating rate fund": "Floating Rate", "floater fund": "Floating Rate", "aggressive hybrid fund": "Aggressive Hybrid", "balanced hybrid fund": "Balanced Hybrid", "equity savings fund": "Equity Savings", "conservative hybrid fund": "Conservative Hybrid", "multi asset allocation fund": "Multi Asset Allocation", "dynamic asset allocation or balanced advantage": "Dynamic Asset Allocation / Balanced Advantage", "dynamic asset allocation or balanced advantage fund": "Dynamic Asset Allocation / Balanced Advantage", "arbitrage fund": "Arbitrage", "retirement fund": "Retirement", "children's fund": "Children's", "childrens fund": "Children's", "pension fund": "Pension"
+    }
+  }
+}

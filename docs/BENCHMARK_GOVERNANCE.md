@@ -4,7 +4,7 @@
 
 `config/category-map.json` is the versioned allowlist for AMFI category parsing. A parsed fund stores the rule identifier and taxonomy version with its asset class. Unknown categories are quarantined as `other`; they do not inherit an equity classification. The additive `scheme_taxonomy` store records the first classification. Later category or taxonomy-version changes are appended to `taxonomy_conflicts` for review and do not rewrite the original record.
 
-Taxonomy v2 signal states, source history, human review actions and migration snapshots are described in [CLASSIFICATION.md](CLASSIFICATION.md). Benchmark gating rejects both `CONFLICT_STALE` and `CONFLICT` classifications until an explicit review action is recorded.
+Taxonomy v3 signal states, AMFI-only classification provenance, human review actions and migration snapshots are described in [CLASSIFICATION.md](CLASSIFICATION.md). Benchmark gating rejects both `CONFLICT_STALE` and `CONFLICT` classifications until an explicit review action is recorded.
 
 ## Proxy approval
 

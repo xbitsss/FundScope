@@ -12,13 +12,14 @@ export { parseAmfiNavAllFile } from '../taxonomy/navFileParser';
 
 export function parsedAmfiNavToFunds(parsed: ReturnType<typeof parseAmfiNavAllFile>): Fund[] {
   const funds: Fund[] = [];
+  const newestNavDate = Math.max(0, ...parsed.schemes.flatMap((row) => row.navDate === null ? [] : [row.navDate]));
   for (const row of parsed.schemes) {
     if (row.nav === null || row.navDate === null) continue;
     const parsedDimensions = parseSchemeName(row.name, row.plan ?? undefined, row.option ?? undefined);
     const plan = parsedDimensions.plan;
     const option = row.option?.trim() || parsedDimensions.option;
     const classification = reconcileClassification({
-      s1: { categoryRaw: row.categoryRaw, headerRaw: row.headerRaw, observedAt: row.navDate * 86_400_000 },
+      s1: { categoryRaw: row.categoryRaw, headerRaw: row.headerRaw, observedAt: row.navDate * 86_400_000, structure: row.structure, navDate: row.navDate, newestNavDate },
       schemeName: row.name,
       evaluatedAt: row.navDate * 86_400_000,
     });
@@ -35,7 +36,15 @@ export function parsedAmfiNavToFunds(parsed: ReturnType<typeof parseAmfiNavAllFi
       taxonomyVersion: TAXONOMY_VERSION,
       classStatus: classification.status,
       classDetail: classification.detail,
-      subCategory: normalizeCategory(row.categoryRaw).sub ?? row.categoryRaw,
+      subCategory: classification.subCategory,
+      group: classification.group,
+      management: classification.management,
+      riskBand: classification.riskBand,
+      philosophy: classification.philosophy,
+      speciality: classification.speciality,
+      lifecycle: classification.lifecycle,
+      classificationReason: classification.reason,
+      classificationProvenance: classification.provenance,
       structure: row.structure,
       plan,
       option,

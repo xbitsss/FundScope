@@ -1,35 +1,47 @@
-# Classification governance (taxonomy v2)
+# Classification governance (taxonomy v3)
 
-## Binding data and fail-closed rules
+## Authoritative inputs
 
-The current production rules are in `config/category-map.json` and `config/passive-rules.json`. Classification first normalizes AMFI category/header labels, applies exact category and subcategory rules, then family rules. Only AMFI passive-family labels may use scheme-name rules. A name match outside those families is never used to infer asset class. Unknown, ambiguous, unmatched, solution-oriented, life-cycle and multi-asset cases remain `other`; the system does not guess an underlying asset class.
+Classification is sourced from AMFI only. `config/taxonomy-tree.json` is the v3 source of truth for the tree, aliases, facets, category-implied risk bands, and dormant NAV threshold.
 
-`src/domain/taxonomy/navFileParser.ts` parses the full AMFI NAVAll state machine. It retains master rows even when NAV/date is `N.A.`, records rejected and duplicate rows, and rejects a source-shape change if fewer than 80% of semicolon-shaped rows parse. `refreshCatalog` persists all rows to `scheme_master`; only rows with valid NAV/date enter the active fund catalog.
+- **S0 · AMFI Scheme Master:** primary category, scheme type, launch/closure dates, ISIN and scheme-code join.
+- **S1 · AMFI NAVAll:** fallback category/header, structure, plan, option and daily NAV. S1 becomes primary when S0 is absent or generic.
+- **S3 · AMFI TER** and **S4 · AMFI AAUM:** AMFI category observations that corroborate S0/S1 where the scheme mapping is sufficiently specific.
+- **S2 · MFapi:** NAV-history metadata only. Its free-text category is retained for transparency and never votes, sets a leaf, creates a conflict, or confirms a class.
+- **S5 · Human SID audit:** reviewer-provided evidence; importing an audit records agreement or disagreement without silently rewriting rule configuration.
 
-## Independent signals and review states
+`src/domain/parse/amfiSchemeMaster.ts` parses the public Scheme Master CSV with header aliases, quoting/BOM support, date validation and a minimum parsed-row shape check. Refresh joins by scheme code, then ISIN, and reports join rate and both orphan sets in source status. If the file shape changes or the request fails, the catalog refresh continues with S1 and preserves cached S0 records; it does not make up S0 fields.
 
-- **S1:** category, structure and current NAV from AMFI NAVAll; this is the binding category source.
-- **S2:** MFapi `scheme_category` from the fetched scheme history.
-- **S3:** dated `SchemeCat_Desc` from AMFI TER disclosures, attached only after a unique AMC/name join; source mappings are recorded.
-- **S4:** peer plausibility flags computed from local NAV/benchmark data. S4 can flag a record but never changes its class.
-- **S5:** human SID audit results imported through the Classification screen.
+`src/domain/taxonomy/classifyV3.ts` classifies categories from explicit AMFI family and leaf rules. Name keywords are a fallback only for AMFI-labelled Index, ETF and FoF categories where the AMFI category does not identify the underlying. Unresolved records remain `assetClass: other`, are presented as **Unclassified**, and carry a specific reason code. No keyword fallback is used to force an ordinary active category into an asset class.
 
-The consensus engine marks mapped S1 classifications `UNCONFIRMED` until another source agrees, `CONFIRMED` when an independent source agrees, and `CONFLICT_STALE` or `CONFLICT` when a mapped signal disagrees. Repeated conflict evidence spanning at least three days becomes `CONFLICT`. Both conflict states suppress benchmark-relative outputs until a reviewer acts. `Accept S1` is recorded as a local review decision; `Rebind Other` is an explicit user binding. Neither action silently changes the rule configuration.
+## Field rules and interpretation
 
-## SQLite and browser persistence
+- Management is Active/Passive when AMFI categories identify an active scheme or explicitly identify Index/ETF; FoF management remains Not specified unless the AMFI label identifies a passive type.
+- Structure comes from the NAVAll section header.
+- Philosophy is Value or Contra only when the AMFI category says so. Otherwise it is Blend/Unspecified.
+- Specialities are explicit category/name tags (ETF, Index, Fund of Funds, Fixed Maturity Plan, Capital Protection, International, Sectoral/Thematic, Solution-oriented, Gold/Silver).
+- Lifecycle is dormant when the Scheme Master closure date is in the past, or when that date is blank and the NAV is more than the configured 90 days older than the newest NAV date in the file. Dormant schemes are retained. A stale-NAV result is labelled “No recent NAV,” not described as proof of closure.
+- Risk bands are **category-implied, not the scheme's official riskometer**. NAVAll does not provide the official riskometer. The configurable rules in `config/taxonomy-tree.json` are product heuristics and must not be described as a SEBI risk rating.
 
-Tauri stores fund payloads in `schemes`, full master rows in `scheme_master`, and immutable current bindings/provenance in `scheme_taxonomy`. `scheme_category_history`, `taxonomy_conflicts`, `unmapped_categories`, `unmapped_category_members`, `classification_audit` and `source_scheme_map` preserve source observations, migrations and decisions. Before taxonomy v2 migration, the runtime snapshots the old `schemes` and `scheme_taxonomy` tables. Taxonomy version bumps are recorded as conflicts before updating the binding.
+Consensus is `CONFIRMED` when two or more AMFI observations support the same category leaf, `UNCONFIRMED` when there is only one AMFI observation or a last-resort name rule, and a conflict only when AMFI sources map to different asset classes. MFapi is excluded from the vote. Human `USER_REBIND_OTHER` and `REVIEWED_S1` decisions survive taxonomy migrations.
 
-The browser preview uses IndexedDB equivalents and makes a one-time backup of existing stores during database upgrade. Application startup performs idempotent setup and backfills stored funds into taxonomy provenance. Apply `src/adapters/sqlite/migrations/0003_classification_v2.sql` only to a schema where `scheme_taxonomy` already exists; runtime initialization handles additive column checks for existing SQLite files.
+## Governance page
 
-## Audit workflow
+The Classification page shows per-asset/status totals and an Unclassified review queue grouped by reason code. Each reason group reports active/dormant counts using the configured lifecycle rule, shows up to 100 examples, and can copy a review-ready rule stub. A stub deliberately does not assign a class; reviewers must inspect AMFI evidence before adding a rule. “Export all unclassified” writes every unclassified row and its S0/S1 raw values, rule, reason and lifecycle to CSV. A separate expandable table lists raw source-label observations recorded by the local diagnostics store.
 
-The Classification page downloads a stratified SID review CSV with AMFI, MFapi, TER and current-class context. Fill in `sid_category`, `sid_url`, and `expected_class`, then import that completed CSV in the app. The app records the comparison against the bound class in local SQLite/IndexedDB and reports agreements and disagreements. No audit agreement rate is claimed until reviewed rows have actually been imported.
+The fund drawer's “Why this classification?” section shows S0–S4 observations, the S2 informational-only rule, and field-level rule/source provenance. Risk is labeled as category-implied.
 
-For offline files, `pnpm classify:audit-sample --input <funds.json> [--output sample.csv]` creates a stratified candidate file. `pnpm classify:audit-import --input <completed.csv> [--output report.json]` validates rows and writes a pre-import summary; the app's Classification page persists them. The commands do not contact AMFI. `pnpm classify:report` is the live, read-only category inventory command and requires network access.
+## Persistence and migration
 
-## Plausibility checks and limits
+Tauri stores fund payloads in `schemes`, master rows in `scheme_master`, and current bindings/provenance in `scheme_taxonomy`. `scheme_category_history`, `taxonomy_conflicts`, `unmapped_categories`, `unmapped_category_members`, `classification_audit` and `source_scheme_map` retain observations, migrations and decisions. Browser builds use IndexedDB equivalents. Taxonomy version is 3; migrations preserve audit records and human decisions. Startup reconciliation is idempotent.
 
-S4 flags are calculated only for open-ended Growth schemes with at least one year of NAV observations. Robust median/MAD peer checks require the configured minimum group size. They report unusual volatility, low equity/hybrid market correlation and class-level volatility mismatches. They do not reclassify a scheme or fabricate holdings. The current run is local to the loaded peer universe and the benchmark proxies available on the device.
+## Audit commands and evidence limits
 
-The implementation does not manufacture a SEBI agreement percentage, confirm rule interpretation without source evidence, or claim that every SID audit has been completed. Review unresolved categories and run the human audit workflow before treating the classifier as fully audited.
+- `pnpm classify:dump` downloads one live NAVAll file, creates the category inventory, and includes current active counts and sample scheme names; it also reports AMFI disclosure-category observations when those endpoints are reachable.
+- `pnpm classify:fixture` rebuilds the offline reference inventory from the checked-in C0 discovery report.
+- `pnpm classify:report` prints the live, read-only inventory.
+- `pnpm classify:audit-sample` and `pnpm classify:audit-import` support an offline SID audit workflow; the in-app Classification page persists imported results.
+
+The checked-in `docs/category-inventory.json` and `tests/fixtures/category-inventory.json` are explicitly marked `offline-c0-reference`: 14,441 scheme rows, 101 distinct observed NAVAll category strings, no active counts or sample names. The prompt's earlier 5,612 held-as-Other total is retained only as a historical user-reported baseline, not a v3 result. The live dump attempt on 2 November 2026 failed because DNS resolution for `portal.amfiindia.com` was unavailable. Therefore current S0 join coverage, active Unclassified percentage, dormant split, current class totals and reduction from 5,612 cannot be reported from this environment. CI verifies that each of the 101 historical raw category strings maps to a leaf or a named reason; it does not claim the active ≤1% target is measured until a live inventory with active counts is available.
+
+The scheme inventory does not imply full historical NAV has been downloaded, nor does a category mapping provide fund holdings or an official riskometer. Do not present those fields as available based on classification alone.
