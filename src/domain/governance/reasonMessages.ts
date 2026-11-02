@@ -8,6 +8,7 @@ export function reasonMessage(detail:ReasonDetail|undefined,metricLabel:string):
     case 'NO_BENCHMARK':
       if(detail.cause==='UNMAPPED_CATEGORY')return `${metricLabel} unavailable: no benchmark is defined for ${detail.subCategory} funds.`;
       if(detail.cause==='UNRESOLVED_PROXY')return `${metricLabel} unavailable: the configured benchmark for ${detail.subCategory} has not been verified.`;
+      if(detail.cause==='RETURN_BASIS_UNVERIFIED')return `${metricLabel} unavailable: the mapped series is not verified as a total return index (TRI).`;
       if(detail.cause==='SERIES_STALE')return `${metricLabel} unavailable: benchmark history is stale${detail.lastDate?` (last value ${detail.lastDate})`:''}.`;
       return `${metricLabel} unavailable: verified benchmark history has not been loaded.`;
     case 'INSUFFICIENT_HISTORY':return detail.cause==='OVERLAP_BELOW_MIN'?`${metricLabel} unavailable: requires ${detail.required} overlapping trading days with the benchmark (currently ${detail.actual} days available).`:`${metricLabel} unavailable: the ${detail.window??'requested'} window needs ${detail.required} years of history (this fund has ${detail.actual.toFixed(1)} years).`;

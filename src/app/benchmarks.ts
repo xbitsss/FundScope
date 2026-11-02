@@ -49,7 +49,7 @@ export async function attachBenchmarkHistories(funds:Fund[]):Promise<{funds:Fund
   const seriesById:BenchmarkSeriesById={};for(const fund of funds){const resolution=resolveBenchmark(fund);if(!resolution.ok)continue;const benchmark=resolution.benchmark;let history:NavPoint[]=[];let fetchedAt=Date.now();let ready=true;
     if(benchmark.kind==='proxy'){const loaded=byId.get(benchmark.id);if(!loaded)ready=false;else{history=loaded.history;fetchedAt=loaded.fetchedAt;}}
     else{const histories=benchmark.components.map(component=>({definition:definitionById(component.benchmark_id),loaded:byId.get(component.benchmark_id),weight:component.weight}));if(histories.some(item=>item.definition?.kind!=='proxy'||!item.loaded))ready=false;else{history=buildCompositeSeries(histories.map(item=>({history:item.loaded!.history,weight:item.weight})));fetchedAt=Math.min(...histories.map(item=>item.loaded!.fetchedAt));}}
-    if(ready)seriesById[benchmark.id]={benchmarkId:benchmark.id,displayName:benchmark.display_name,assetClass:benchmark.asset_class,kind:benchmark.kind,history,fetchedAt};
+    if(ready)seriesById[benchmark.id]={benchmarkId:benchmark.id,displayName:benchmark.display_name,assetClass:benchmark.asset_class,kind:benchmark.kind,returnBasis:'TRI',history,fetchedAt};
   }
   return {funds,seriesById};
 }

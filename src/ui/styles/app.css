@@ -5,3 +5,32 @@
 .main-content{overflow-x:hidden;overflow-y:auto;scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior:contain}
 .main-content::-webkit-scrollbar{display:none}
 .main-content>.subpage{height:auto;min-height:100%;flex:none;overflow:visible}
+/* Shared control alignment: labels and icons use the same center line and spacing. */
+.button,
+.toolbar-button,
+.icon-button,
+.link-button,
+.drawer-close,
+.summary-chip button {
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+.button,
+.toolbar-button {
+  gap: var(--control-gap);
+}
+.icon-button,
+.link-button,
+.drawer-close,
+.summary-chip button {
+  display: inline-flex;
+}
+button svg {
+  display: block;
+  flex: 0 0 auto;
+}
+.drawer-close svg,
+.summary-chip button svg {
+  margin: auto;
+}

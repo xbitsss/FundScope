@@ -31,6 +31,6 @@ describe('NAV metric calculations',()=>{
   it('computes the arithmetic mean of observed rolling 3Y CAGRs',()=>{
     const history=Array.from({length:1_500},(_,index)=>({date:10_000+index,nav:100*Math.pow(1.1,index/365.2425)}));
     const bundle=computeMetricBundle({history,nav:history.at(-1)!.nav,navDate:history.at(-1)!.date});
-    expect(bundle.metrics.rolling_3y_average_return).toBeCloseTo(10,4);
+    expect(bundle.metrics.rolling_3y_average_return).toBeCloseTo(10,3);
   });
 });

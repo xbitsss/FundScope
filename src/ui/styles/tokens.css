@@ -2,6 +2,8 @@
 
 :root {
   color-scheme: light;
+  --control-gap: .5rem;
+  --control-touch-size: 3rem;
   --bg:#F7F8FA; --surface:#FFFFFF; --surface-2:#F2F4F7; --border:#E4E7EC;
   --text:#101828; --text-muted:#667085; --accent:#4F46E5; --accent-soft:#F5F6FF;
   --positive:#067647; --negative:#B42318; --warning:#B54708; --shadow:0 18px 48px rgb(16 24 40 / 12%);

@@ -1,4 +1,5 @@
 import type { NavPoint } from '../types';
+import { ANALYTICS_DEFAULTS } from '../metrics/conventions';
 
 export type Aligned={dates:Int32Array;a:Float64Array;b:Float64Array;n:number};
 export type AlignedReturns={dates:Int32Array;rf:Float64Array;rb:Float64Array;nObs:number};
@@ -14,7 +15,7 @@ export function alignByDate(datesA:Int32Array,valuesA:Float64Array,datesB:Int32A
 export function alignedReturns(aligned:Aligned):AlignedReturns|null{
   const {dates,a,b,n}=aligned;if(n<2||dates.length!==n||a.length!==n||b.length!==n)return {dates:new Int32Array(),rf:new Float64Array(),rb:new Float64Array(),nObs:0};
   const days:number[]=[];const rf:number[]=[];const rb:number[]=[];
-  for(let index=1;index<n;index++){const gap=dates[index]!-dates[index-1]!;if(gap<=0||gap>7)continue;const beforeA=a[index-1]!;const beforeB=b[index-1]!;if(beforeA<=0||beforeB<=0)continue;rf.push(a[index]!/beforeA-1);rb.push(b[index]!/beforeB-1);days.push(dates[index]!);}
+  for(let index=1;index<n;index++){const gap=dates[index]!-dates[index-1]!;if(gap<=0||gap>ANALYTICS_DEFAULTS.maxReturnGapDays)continue;const beforeA=a[index-1]!;const beforeB=b[index-1]!;if(beforeA<=0||beforeB<=0)continue;rf.push(a[index]!/beforeA-1);rb.push(b[index]!/beforeB-1);days.push(dates[index]!);}
   return {dates:Int32Array.from(days),rf:Float64Array.from(rf),rb:Float64Array.from(rb),nObs:rf.length};
 }
 

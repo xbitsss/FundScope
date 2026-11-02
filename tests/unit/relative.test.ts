@@ -36,15 +36,15 @@ describe('relative and disclosure engines',()=>{
     expect(result[0]!.metricProvenance?.category_std_dev).toBe('PEER_MEDIAN');
   });
   it('uses an exact-date join for benchmark regression',()=>{
-    const fundHistory=series(2);const resolution:BenchmarkResolution={ok:true,fit:'category_standard',benchmark:{id:'test',display_name:'Test benchmark',asset_class:'equity',kind:'proxy',status:'verified',provider:'mfapi',scheme_code:1,verification:{verified_at:'2026-10-13',scheme_name:'Test',isin:null,first_nav_date:'2025-12-01',last_nav_date:'2026-10-13',checks:['test fixture']}}};
-    const evaluated=evaluateBenchmarkRegression({fund:{...fund(1),history:fundHistory,nav:fundHistory.at(-1)!.nav,navDate:fundHistory.at(-1)!.date},benchmarkHistory:series(1),benchmarkAsOf:20_499,riskWindow:1,riskFreeRate:6.5,maxSeriesAgeDays:10,fit:'category_standard'},resolution);
+    const fundHistory=series(2);const resolution:BenchmarkResolution={ok:true,fit:'category_standard',benchmark:{id:'test',display_name:'Test benchmark',asset_class:'equity',kind:'proxy',status:'verified',provider:'mfapi',scheme_code:1,verification:{verified_at:'2026-10-13',scheme_name:'Test',isin:null,first_nav_date:'2025-12-01',last_nav_date:'2026-10-13',return_basis:'TRI',checks:['test fixture']}}};
+    const evaluated=evaluateBenchmarkRegression({fund:{...fund(1),history:fundHistory,nav:fundHistory.at(-1)!.nav,navDate:fundHistory.at(-1)!.date},benchmarkHistory:series(1),benchmarkAsOf:20_499,benchmarkReturnBasis:'TRI',riskWindow:1,riskFreeRate:6.5,maxSeriesAgeDays:10,fit:'category_standard'},resolution);
     const metrics=evaluated.metrics;
     expect(metrics.beta).toBeCloseTo(2,4);
     expect(metrics.tracking_error).toBeGreaterThan(0);
   });
   it('returns an explicit minimum-overlap reason below 200 aligned returns',()=>{
-    const fundHistory=series(1);const benchmarkHistory=series(1).slice(-200);const resolution:BenchmarkResolution={ok:true,fit:'category_standard',benchmark:{id:'test',display_name:'Test benchmark',asset_class:'equity',kind:'proxy',status:'verified',provider:'mfapi',scheme_code:1,verification:{verified_at:'2026-10-13',scheme_name:'Test',isin:null,first_nav_date:'2025-12-01',last_nav_date:'2026-10-13',checks:['test fixture']}}};
-    const result=evaluateBenchmarkRegression({fund:{...fund(1),history:fundHistory,nav:fundHistory.at(-1)!.nav,navDate:fundHistory.at(-1)!.date},benchmarkHistory,benchmarkAsOf:20_499,riskWindow:1,riskFreeRate:6.5,maxSeriesAgeDays:10,fit:'category_standard'},resolution);
+    const fundHistory=series(1);const benchmarkHistory=series(1).slice(-200);const resolution:BenchmarkResolution={ok:true,fit:'category_standard',benchmark:{id:'test',display_name:'Test benchmark',asset_class:'equity',kind:'proxy',status:'verified',provider:'mfapi',scheme_code:1,verification:{verified_at:'2026-10-13',scheme_name:'Test',isin:null,first_nav_date:'2025-12-01',last_nav_date:'2026-10-13',return_basis:'TRI',checks:['test fixture']}}};
+    const result=evaluateBenchmarkRegression({fund:{...fund(1),history:fundHistory,nav:fundHistory.at(-1)!.nav,navDate:fundHistory.at(-1)!.date},benchmarkHistory,benchmarkAsOf:20_499,benchmarkReturnBasis:'TRI',riskWindow:1,riskFreeRate:6.5,maxSeriesAgeDays:10,fit:'category_standard'},resolution);
     expect(result.metrics.beta).toBeNull();
     expect(result.reasonDetails.beta).toMatchObject({code:'INSUFFICIENT_HISTORY',cause:'OVERLAP_BELOW_MIN',required:200,actual:199});
   });

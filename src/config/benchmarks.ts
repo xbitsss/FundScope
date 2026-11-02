@@ -7,7 +7,7 @@ import { normalizeCategoryText } from '../domain/taxonomy/categoryNormalize';
 import type { Fund } from '../domain/types';
 import type { ReasonDetail } from '../domain/governance/reasons';
 
-const verificationSchema=z.object({verified_at:z.string().min(1),scheme_name:z.string().min(1),isin:z.string().nullable(),first_nav_date:z.string().min(1),last_nav_date:z.string().min(1),checks:z.array(z.string().min(1)).min(1)});
+const verificationSchema=z.object({verified_at:z.string().min(1),scheme_name:z.string().min(1),isin:z.string().nullable(),first_nav_date:z.string().min(1),last_nav_date:z.string().min(1),return_basis:z.literal('TRI'),checks:z.array(z.string().min(1)).min(1)});
 const proxySchema=z.object({id:z.string().min(1),display_name:z.string().min(1),asset_class:z.enum(['equity','debt','hybrid','solution','commodity','liquid','other']),kind:z.literal('proxy'),status:z.enum(['verified','unresolved']),provider:z.literal('mfapi'),scheme_code:z.number().int().positive().nullable(),verification:verificationSchema.nullable()});
 const componentSchema=z.object({benchmark_id:z.string().min(1),weight:z.number().positive().max(1)});
 const compositeSchema=z.object({id:z.string().min(1),display_name:z.string().min(1),asset_class:z.enum(['equity','debt','hybrid','solution','commodity','liquid','other']),kind:z.literal('composite'),status:z.enum(['verified','unresolved']),components:z.array(componentSchema),rebalance:z.literal('daily')});

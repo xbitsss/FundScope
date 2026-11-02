@@ -6,6 +6,7 @@ export interface BenchmarkSeriesData{
   displayName:string;
   assetClass:AssetClass;
   kind:'proxy'|'composite';
+  returnBasis:'TRI';
   history:NavPoint[];
   fetchedAt:number;
 }
