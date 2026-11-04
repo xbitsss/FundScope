@@ -44,7 +44,7 @@ jobs:
       HTTP_MAX_RETRIES: '4'
       RISK_FREE_RATE: '6.5'
       GITHUB_REPOSITORY_VISIBILITY: public
-      ENCRYPT_DATA: ${{ (github.event_name == 'workflow_dispatch' && inputs.code_only) && 'false' || 'true' }}
+      ENCRYPT_DATA: ${{ ((github.event_name == 'workflow_dispatch' && inputs.code_only) || github.event_name == 'push') && 'false' || 'true' }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -64,7 +64,7 @@ jobs:
             echo '::error::FundScope Pages hosting requires the repository to be public.'
             exit 1
           fi
-          if [[ "${{ github.event_name }}" != 'workflow_dispatch' || "${{ inputs.code_only }}" != 'true' ]]; then
+          if [[ "${ENCRYPT_DATA}" == 'true' ]]; then
             if [[ -z "${DATA_PASSPHRASE}" || ${#DATA_PASSPHRASE} -lt 16 ]]; then
               echo '::error::Add DATA_PASSPHRASE (at least 16 characters) in Settings > Secrets and variables > Actions.'
               exit 1
@@ -78,7 +78,7 @@ jobs:
       - name: Build Node ETL bundle
         run: pnpm etl:bundle
       - name: Restore the last snapshot for code-only deployment
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.code_only }}
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.code_only) || github.event_name == 'push' }}
         env:
           ENCRYPT_DATA: 'false'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -87,7 +87,7 @@ jobs:
           DATA_RELEASE_TAG: data-latest
         run: node .data/etl-build/cli.mjs --restore-snapshot
       - name: Refresh public sources, SQLite, and encrypted snapshot
-        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.code_only) }}
+        if: ${{ !((github.event_name == 'workflow_dispatch' && inputs.code_only) || github.event_name == 'push') }}
         env:
           DATA_PASSPHRASE: ${{ secrets.DATA_PASSPHRASE }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
