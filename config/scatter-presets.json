@@ -1,0 +1,7 @@
+[
+  { "id": "risk-return", "label": "Risk vs Return", "x": "std_dev", "y": "cagr_3y" },
+  { "id": "cost-return", "label": "Cost vs Return", "x": "ter_pct", "y": "cagr_3y" },
+  { "id": "risk-adjusted", "label": "Risk-adjusted", "x": "sharpe", "y": "sortino" },
+  { "id": "downside-protection", "label": "Downside protection", "x": "downside_capture", "y": "upside_capture" },
+  { "id": "size-return", "label": "Size vs Return", "x": "aum_cr", "y": "cagr_3y" }
+]

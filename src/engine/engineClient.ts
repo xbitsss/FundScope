@@ -1,11 +1,13 @@
 import type { Fund } from '../domain/types';
 import type { ScreenerFilters } from '../domain/screener/filters';
 import type { ScoreFactor } from '../domain/scoring/engine';
+import type { ScatterQueryOptions, ScatterQueryResult } from '../domain/scatter/scatterQuery';
 import { ScreenerEngine, type EngineCategoryTree, type EngineQueryResult, type EngineSort } from './core';
 
 type WorkerReply =
   | { kind: 'ready'; id: number; size: number; categoryTree: EngineCategoryTree[] }
   | { kind: 'result'; id: number; result: EngineQueryResult }
+  | { kind: 'scatter-result'; id: number; result: ScatterQueryResult }
   | { kind: 'error'; id: number; message: string };
 type Pending = { resolve: (value: WorkerReply) => void; reject: (reason: Error) => void };
 
@@ -73,6 +75,19 @@ export class ScreenerEngineClient {
     return new Promise((resolve, reject) => {
       this.pending.set(id, { resolve: reply => reply.kind === 'result' ? resolve({ id, result: reply.result }) : reject(new Error('Unexpected screener worker response.')), reject });
       this.worker!.postMessage({ kind: 'query', id, filters, sort, now, factors });
+    });
+  }
+
+  async scatter(options: ScatterQueryOptions): Promise<{ id: number; result: ScatterQueryResult }> {
+    await this.loadPromise;
+    const id = ++this.nextId;
+    if (!this.worker) {
+      if (!this.local) throw new Error('The local screener index is not ready.');
+      return { id, result: this.local.scatterQuery(options) };
+    }
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve: reply => reply.kind === 'scatter-result' ? resolve({ id, result: reply.result }) : reject(new Error('Unexpected scatter worker response.')), reject });
+      this.worker!.postMessage({ kind: 'scatter', id, options });
     });
   }
 

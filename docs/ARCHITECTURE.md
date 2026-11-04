@@ -19,3 +19,15 @@ The manifest includes each file's ciphertext hash and byte length. The reader ch
 ## Performance boundary
 
 The local Node benchmark measures only deterministic filter-core work. It does not represent phone CPU throttling, worker transfer, browser paint, scroll frame rate, memory pressure, or network. First download time depends on the user's network. See [`PERF_2026-11-02.md`](PERF_2026-11-02.md) for the measured data and limitations.
+
+## Applied filter chips
+
+`src/ui/filters/AppliedFilters.tsx` is shared by the screener summary strip and the mobile filter sheet. It shows one chip per active facet, opens a list of removable values, and uses the same `FilterChip` primitive for the small tokens inside facet cards. Chips wrap; a measured row fitter reserves room for the `+N more` and `Clear all` controls. The expanded list grows with the page instead of creating a nested scroller. The live region remains mounted when the last chip is removed so additions, removals, result counts, and the undo message can still be announced. Clear all saves the current filter state for a five-second undo window.
+
+## Compare scatter calculations
+
+`src/domain/scatter/quadrants.ts` owns direction, threshold, tie, quadrant, and percentile rules without React or DOM dependencies. A threshold is calculated from plotted pairs in the chosen scope; peer median means the median of the per-sub-category medians. Exact threshold ties belong to the better side for a higher/lower metric, and to the high side for a no-preference metric. If either axis has no preference, all four quadrants stay neutral and the UI does not call one best or avoid.
+
+`src/domain/scatter/scatterQuery.ts` runs through the existing screener worker. It scopes the loaded catalogue, counts paired axis coverage, excludes funds missing either selected value, and returns typed arrays, reason counts, thresholds, direction-aware ranks, selected flags, and outlier bounds. Missing measurements are never filled. UI request sequence guards prevent an older response from replacing a newer selection. The canvas draws dense points, SVG supplies labels and keyboard navigation, and a virtual row table provides the text alternative and CSV export. PNG and CSV exports are created locally in the browser.
+
+Scatter preferences are stored in local state and `localStorage`, and saved screens now serialize version 3. Version 2 screens remain readable and receive default scatter settings when loaded.

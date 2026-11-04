@@ -2,6 +2,7 @@ import type { Fund } from '../domain/types';
 import { arrayFacets, fixedValues, ordered, type ArrayFacet, type FacetOption, type ScreenerFilters, type ScreenerFacet } from '../domain/screener/filters';
 import { normalizeFilterText } from '../domain/search/normalize';
 import type { ScoreFactor } from '../domain/scoring/engine';
+import { computeScatterQuery, type ScatterQueryOptions, type ScatterQueryResult } from '../domain/scatter/scatterQuery';
 
 export interface EngineSort { id: string; desc: boolean }
 export interface EngineFacetCounts { values: string[]; counts: Uint32Array }
@@ -52,6 +53,7 @@ function readBit(mask: Uint32Array, index: number): boolean { return (mask[index
 export class ScreenerEngine {
   readonly size: number;
   readonly categoryTree: EngineCategoryTree[];
+  private readonly funds: Fund[];
   private readonly universe: Uint32Array;
   private readonly columns = new Map<ArrayFacet, FacetColumn>();
   private readonly metricColumns = new Map<string, MetricColumn>();
@@ -62,6 +64,7 @@ export class ScreenerEngine {
   private readonly sortCache = new Map<string, Uint32Array>();
 
   constructor(funds: Fund[], onProfile?: (phase: string, milliseconds: number) => void) {
+    this.funds = funds;
     const clock = () => globalThis.performance?.now() ?? 0;
     let phaseStart = clock();
     const recordPhase = (name: string) => { if (onProfile) { const now = clock(); onProfile(name, now - phaseStart); phaseStart = now; } };
@@ -186,6 +189,10 @@ export class ScreenerEngine {
     const indices = new Uint32Array(total);
     let cursor = 0; for (const index of order) if (readBit(resultMask, index)) indices[cursor++] = index;
     return { total, indices, facets, funnel, ...(scores ? { scores } : {}) };
+  }
+
+  scatterQuery(options: ScatterQueryOptions): ScatterQueryResult {
+    return computeScatterQuery(this.funds, options);
   }
 
   private searchMask(query: string): Uint32Array | null {
