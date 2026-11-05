@@ -19,7 +19,6 @@ import './ui/styles/snapshot-gate.css';
 import './ui/styles/mobile-ux.css';
 import './ui/styles/applied-filters.css';
 import './ui/styles/scatter.css';
-import './ui/styles/scatter.css';
 
 const app = import.meta.env.MODE === 'web' ? <WebSnapshotGate /> : <App />;
 if (import.meta.env.MODE === 'web' && 'serviceWorker' in navigator) {

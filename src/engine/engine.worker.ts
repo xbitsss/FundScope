@@ -24,7 +24,7 @@ scope.onmessage = event => {
     if (!engine) throw new Error('The local screener index is not ready.');
     if (message.kind === 'scatter') {
       const result: ScatterQueryResult = engine.scatterQuery(message.options);
-      scope.postMessage({ kind: 'scatter-result', id: message.id, result }, [result.codes.buffer, result.x.buffer, result.y.buffer, result.quadrants.buffer, result.percentileX.buffer, result.percentileY.buffer, result.rankX.buffer, result.rankY.buffer, result.selected.buffer]);
+      scope.postMessage({ kind: 'scatter-result', id: message.id, result }, [result.codes.buffer, result.x.buffer, result.y.buffer, result.quadrants.buffer, result.selected.buffer, result.percentileX.buffer, result.percentileY.buffer, result.rankX.buffer, result.rankY.buffer]);
       return;
     }
     const result = engine.query(message.filters, message.sort, message.now, message.factors);

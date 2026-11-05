@@ -18,7 +18,16 @@ export function ScatterTable({ result, xMetric, yMetric, dirX, dirY, sort, onSor
 }) {
   const [scrollTop, setScrollTop] = useState(0); const rowHeight = 46; const height = 360;
   const start = Math.max(0, Math.floor(scrollTop / rowHeight) - 4); const end = Math.min(result.codes.length, start + Math.ceil(height / rowHeight) + 8);
-  const rows = useMemo(() => Array.from({ length: Math.max(0, end - start) }, (_, offset) => start + offset), [start, end]);
+  const sortedIndices = useMemo(() => Array.from({ length: result.codes.length }, (_, index) => index).sort((left, right) => {
+    const compare = sort.by === 'name' ? result.names[left]!.localeCompare(result.names[right]!)
+      : sort.by === 'x' ? result.x[left]! - result.x[right]!
+        : sort.by === 'y' ? result.y[left]! - result.y[right]!
+          : sort.by === 'rankX' ? result.rankX[left]! - result.rankX[right]!
+            : sort.by === 'rankY' ? result.rankY[left]! - result.rankY[right]!
+              : result.quadrants[left]! - result.quadrants[right]!;
+    return (sort.desc ? -compare : compare) || result.names[left]!.localeCompare(result.names[right]!);
+  }), [result, sort.by, sort.desc]);
+  const rows = useMemo(() => sortedIndices.slice(start, end), [sortedIndices, start, end]);
   const exportCsv = () => {
     const escape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
     const heading = ['Fund', 'AMC', xMetric.label, yMetric.label, 'Quadrant', `Rank ${xMetric.label}`, `Rank ${yMetric.label}`, 'Sub-category'];
