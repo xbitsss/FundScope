@@ -22,12 +22,20 @@ export function niceTicks(minimum: number, maximum: number, target = 5): number[
   let low = Math.min(minimum, maximum); let high = Math.max(minimum, maximum);
   if (low === high) { const pad = Math.max(Math.abs(low) * 0.08, 0.01); low -= pad; high += pad; }
   const desired = Math.max(2, Math.min(8, target)); const raw = (high - low) / (desired - 1);
-  const power = 10 ** Math.floor(Math.log10(raw)); const fraction = raw / power;
-  const nice = (fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 2.5 ? 2.5 : fraction <= 5 ? 5 : 10) * power;
-  const start = Math.ceil(low / nice) * nice; const ticks: number[] = [];
-  for (let value = start, guard = 0; value <= high + nice * 1e-8 && guard < 10; value += nice, guard++) ticks.push(Number(value.toPrecision(12)));
-  if (low < 0 && high > 0 && !ticks.some(value => Math.abs(value) < nice * 1e-8)) ticks.push(0);
-  return ticks.sort((a, b) => a - b);
+  const exponent = Math.floor(Math.log10(raw)); const fractions = [1, 2, 2.5, 5, 10];
+  const candidates = [-1, 0, 1].flatMap(offset => fractions.map(fraction => fraction * 10 ** (exponent + offset)));
+  const makeTicks = (step: number) => {
+    const start = Math.ceil(low / step - 1e-10) * step; const values: number[] = [];
+    for (let value = start, guard = 0; value <= high + step * 1e-8 && guard < 12; value += step, guard++) values.push(Number(value.toPrecision(12)));
+    if (low < 0 && high > 0 && !values.some(value => Math.abs(value) < step * 1e-8)) values.push(0);
+    return values.sort((a, b) => a - b);
+  };
+  const score = (step: number) => {
+    const count = makeTicks(step).length; const inPreferredRange = count >= 4 && count <= 6;
+    return (inPreferredRange ? 0 : 10 + Math.abs(count - desired)) + Math.abs(count - desired) * .25 + Math.abs(Math.log(step / raw)) * .12;
+  };
+  const step = candidates.sort((a, b) => score(a) - score(b))[0]!;
+  return makeTicks(step);
 }
 
 export function formatAxisTitle(metric: Pick<MetricDefinition, 'id' | 'label' | 'unit'>, direction: MetricDirection, windowYears?: number): string {
