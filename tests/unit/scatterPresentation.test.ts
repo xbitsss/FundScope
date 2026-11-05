@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { formatAxisTitle, formatEpochDay, formatEpochMs, formatMetricAxisLabel, formatSplitValue, labelPlacement, niceTicks, parseSplitValue } from '../../src/domain/scatter/presentation';
+import { formatAxisTitle, formatCompactMetricAxisLabel, formatEpochDay, formatEpochMs, formatMetricAxisLabel, formatSplitValue, labelPlacement, niceTicks, parseSplitValue } from '../../src/domain/scatter/presentation';
 import { parseScatterPreferences } from '../../src/ui/scatter/preferences';
 
 describe('scatter presentation helpers', () => {
@@ -20,6 +20,11 @@ describe('scatter presentation helpers', () => {
     expect(formatAxisTitle({ id: 'std_dev', label: 'Volatility (annualized std dev) (%)', unit: '%' }, 'lower', 1)).toBe('Volatility (annualized std dev) (%) · 1Y risk window · lower is better');
     expect(formatAxisTitle({ id: 'cagr_3y', label: '3Y CAGR', unit: '%' }, 'higher', 1)).toBe('3Y CAGR (%) · higher is better');
     expect(formatMetricAxisLabel({ id: 'cagr_3y', label: '3Y CAGR (%)', unit: '%' })).toBe('3Y CAGR (%)');
+  });
+
+  it('keeps plot axis labels compact without stretching long metric descriptions', () => {
+    expect(formatCompactMetricAxisLabel({ id: 'std_dev', label: 'Volatility (annualized std dev) (%)', unit: '%' }, 1)).toBe('Volatility · 1Y risk');
+    expect(formatCompactMetricAxisLabel({ id: 'cagr_3y', label: '3Y CAGR', unit: '%' }, 1)).toBe('3Y CAGR');
   });
 
   it('formats custom splits to two decimals and retains the last valid value on invalid input', () => {

@@ -56,6 +56,15 @@ export function formatMetricAxisLabel(metric: Pick<MetricDefinition, 'id' | 'lab
   return `${label}${unitSuffix}${basis ? ` · ${basis}` : ''}`;
 }
 
+/** Compact plot labels use the tick units and keep only the relevant time basis. */
+export function formatCompactMetricAxisLabel(metric: Pick<MetricDefinition, 'id' | 'label' | 'unit'>, windowYears?: number): string {
+  const name = formatMetricName(metric).replace(/\s*\([^)]*\)/g, '').replace(/\s{2,}/g, ' ').trim();
+  if (riskMetrics.has(metric.id) && windowYears) return `${name} · ${windowYears}Y risk`;
+  const fixedWindow = metric.id.match(/_(\d+)y$/i)?.[1];
+  if (fixedWindow && !new RegExp(`\\b${fixedWindow}Y\\b`, 'i').test(name)) return `${name} · ${fixedWindow}Y`;
+  return name;
+}
+
 export function formatSplitValue(value: number | null | undefined): string {
   return typeof value === 'number' && Number.isFinite(value) ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value) : '';
 }
