@@ -38,16 +38,37 @@ export function niceTicks(minimum: number, maximum: number, target = 5): number[
   return makeTicks(step);
 }
 
-export function formatAxisTitle(metric: Pick<MetricDefinition, 'id' | 'label' | 'unit'>, direction: MetricDirection, windowYears?: number): string {
-  const label = metric.label.replace(/\s*\([^)]*%[^)]*\)\s*$/g, '').trim();
-  const fixedWindow = metric.id.match(/_(\d+)y$/i)?.[1];
-  const basis = metric.id === 'std_dev' || metric.id === 'sharpe' || metric.id === 'sortino' || metric.id === 'max_drawdown'
-    ? (windowYears ? `${windowYears}Y window` : '')
-    : fixedWindow && !new RegExp(`\\b${fixedWindow}Y\\b`, 'i').test(label) ? `${fixedWindow}Y` : '';
+const riskMetrics = new Set(['std_dev', 'var_95', 'semi_deviation', 'sharpe', 'sortino', 'max_drawdown', 'calmar', 'tail_risk_ratio', 'gain_loss_ratio', 'omega', 'beta', 'r_squared', 'treynor', 'jensen_alpha', 'information_ratio', 'upside_capture', 'downside_capture', 'tracking_error']);
+
+export function formatMetricName(metric: Pick<MetricDefinition, 'label' | 'unit'>): string {
+  const unitPattern = metric.unit === '%' ? /\s*\(%\)\s*$/ : metric.unit === '₹ Cr' ? /\s*\(₹\s*Cr\)\s*$/i : metric.unit === 'years' ? /\s*\(years?\)\s*$/i : metric.unit === 'ratio' ? /\s*\(ratio\)\s*$/i : null;
+  return (unitPattern ? metric.label.replace(unitPattern, '') : metric.label).trim();
+}
+
+export function formatMetricAxisLabel(metric: Pick<MetricDefinition, 'id' | 'label' | 'unit'>, windowYears?: number): string {
   const unit = metric.unit && metric.unit !== 'enum' ? metric.unit : '';
+  const label = formatMetricName(metric);
+  const fixedWindow = metric.id.match(/_(\d+)y$/i)?.[1];
+  const basis = riskMetrics.has(metric.id)
+    ? (windowYears ? `${windowYears}Y risk window` : '')
+    : fixedWindow && !new RegExp(`\\b${fixedWindow}Y\\b`, 'i').test(label) ? `${fixedWindow}Y` : '';
   const unitSuffix = unit === '%' ? ' (%)' : unit ? ` (${unit})` : '';
+  return `${label}${unitSuffix}${basis ? ` · ${basis}` : ''}`;
+}
+
+export function formatSplitValue(value: number | null | undefined): string {
+  return typeof value === 'number' && Number.isFinite(value) ? new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value) : '';
+}
+
+export function parseSplitValue(input: string, lastValid: number | null): { value: number | null; valid: boolean } {
+  const clean = input.trim().replace(/[₹,%\s,]/g, '');
+  const parsed = clean === '' ? null : Number(clean);
+  return typeof parsed === 'number' && Number.isFinite(parsed) ? { value: parsed, valid: true } : { value: lastValid, valid: false };
+}
+
+export function formatAxisTitle(metric: Pick<MetricDefinition, 'id' | 'label' | 'unit'>, direction: MetricDirection, windowYears?: number): string {
   const directionText = direction === 'higher' ? 'higher is better' : direction === 'lower' ? 'lower is better' : 'no preference';
-  return `${label}${unitSuffix}${basis ? ` · ${basis}` : ''} · ${directionText}`;
+  return `${formatMetricAxisLabel(metric, windowYears)} · ${directionText}`;
 }
 
 /** Best-effort deterministic label placement. Positions are clamped to the plot area. */

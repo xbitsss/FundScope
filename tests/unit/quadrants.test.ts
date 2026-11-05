@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assignQuadrant, bestQuadrant, computeThreshold, effectiveDirection, percentileRank, percentileValue, quadrantName, worstQuadrant, type MetricDirection } from '../../src/domain/scatter/quadrants';
+import { assignQuadrant, bestQuadrant, computeSplit, computeThreshold, effectiveDirection, percentileRank, percentileValue, quadrantName, quadrantTone, worstQuadrant, type MetricDirection } from '../../src/domain/scatter/quadrants';
 
 describe('scatter quadrant math', () => {
   it.each([
@@ -20,6 +20,30 @@ describe('scatter quadrant math', () => {
     expect(assignQuadrant(10, 10, 10, 10, 'higher', 'lower')).toBe(1);
     expect(assignQuadrant(10, 10, 10, 10, 'none', 'none')).toBe(3);
     expect(effectiveDirection('neutral')).toBe('none');
+  });
+
+  it.each([
+    ['lower', 'higher', { best: 2, worst: 1 }],
+    ['higher', 'higher', { best: 3, worst: 0 }],
+    ['lower', 'lower', { best: 0, worst: 3 }],
+    ['higher', 'lower', { best: 1, worst: 2 }],
+  ] as const)('colors all four natural-axis quadrants for %s / %s', (xDirection, yDirection, expected) => {
+    const highXIsGood = xDirection === 'higher'; const highYIsGood = yDirection === 'higher';
+    for (const id of [0, 1, 2, 3] as const) {
+      const tone = quadrantTone(highXIsGood, highYIsGood, id);
+      expect(tone).toBe(id === expected.best ? 'best' : id === expected.worst ? 'worst' : 'mixed');
+    }
+  });
+
+  it('keeps every quadrant neutral when either axis has no preference', () => {
+    for (const id of [0, 1, 2, 3] as const) expect(quadrantTone(null, true, id)).toBe('neutral');
+    expect(quadrantName(2, 'Volatility', '3Y CAGR', 'lower', 'higher').label).toContain('Low risk, High return');
+  });
+
+  it('uses a visible fallback chain and can split a single plotted fund at peer median', () => {
+    const single = [{ x: 2, y: 8 }];
+    expect(computeSplit({ requested: 'peer-median', plotted: single, peers: [{ x: 4, y: 12 }, { x: 5, y: 13 }, { x: 6, y: 14 }, { x: 7, y: 15 }, { x: 8, y: 16 }, { x: 9, y: 17 }, { x: 10, y: 18 }, { x: 11, y: 19 }, { x: 12, y: 20 }, { x: 13, y: 21 }] })).toMatchObject({ x: 8.5, y: 16.5, rule: 'peer-median', peerCount: 10, notice: null });
+    expect(computeSplit({ requested: 'peer-median', plotted: [{ x: 2, y: 8 }, { x: 4, y: 10 }, { x: 6, y: 12 }], peers: [], customX: 3, customY: 9 })).toMatchObject({ x: 4, y: 10, rule: 'median', notice: expect.stringContaining('using median') });
   });
 
   it('computes median, mean, peer-median, and custom thresholds', () => {

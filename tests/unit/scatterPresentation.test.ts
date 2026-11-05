@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { formatAxisTitle, formatEpochDay, formatEpochMs, labelPlacement, niceTicks } from '../../src/domain/scatter/presentation';
+import { formatAxisTitle, formatEpochDay, formatEpochMs, formatMetricAxisLabel, formatSplitValue, labelPlacement, niceTicks, parseSplitValue } from '../../src/domain/scatter/presentation';
 import { parseScatterPreferences } from '../../src/ui/scatter/preferences';
 
 describe('scatter presentation helpers', () => {
@@ -17,8 +17,17 @@ describe('scatter presentation helpers', () => {
   });
 
   it('does not duplicate units and uses each metric basis', () => {
-    expect(formatAxisTitle({ id: 'std_dev', label: 'Volatility (annualized std dev) (%)', unit: '%' }, 'lower', 1)).toBe('Volatility (annualized std dev) (%) · 1Y window · lower is better');
+    expect(formatAxisTitle({ id: 'std_dev', label: 'Volatility (annualized std dev) (%)', unit: '%' }, 'lower', 1)).toBe('Volatility (annualized std dev) (%) · 1Y risk window · lower is better');
     expect(formatAxisTitle({ id: 'cagr_3y', label: '3Y CAGR', unit: '%' }, 'higher', 1)).toBe('3Y CAGR (%) · higher is better');
+    expect(formatMetricAxisLabel({ id: 'cagr_3y', label: '3Y CAGR (%)', unit: '%' })).toBe('3Y CAGR (%)');
+  });
+
+  it('formats custom splits to two decimals and retains the last valid value on invalid input', () => {
+    expect(formatSplitValue(3.755044780992)).toBe('3.76');
+    expect(formatSplitValue(12345.1)).toBe('12,345.10');
+    expect(parseSplitValue('12,345.10', 2)).toEqual({ value: 12345.1, valid: true });
+    expect(parseSplitValue('', 3.76)).toEqual({ value: 3.76, valid: false });
+    expect(parseSplitValue('Infinity', 3.76)).toEqual({ value: 3.76, valid: false });
   });
 
   it('creates readable tick values for negative and tiny ranges', () => {
@@ -53,11 +62,13 @@ describe('scatter presentation helpers', () => {
   });
 
   it('migrates legacy compare preferences by ignoring removed scope and outlier controls', () => {
-    const migrated = parseScatterPreferences({ x: 'std_dev', y: 'cagr_3y', scope: 'current', includeOutliers: true, logScale: true, splitRule: 'median' });
-    expect(migrated).toMatchObject({ x: 'std_dev', y: 'cagr_3y', splitRule: 'median' });
+    const migrated = parseScatterPreferences({ x: 'std_dev', y: 'cagr_3y', scope: 'current', includeOutliers: true, orientation: 'best-top-right', zoom: 1.5, bestAtTopRight: true, logScale: true, splitRule: 'median' });
+    expect(migrated).toMatchObject({ x: 'std_dev', y: 'cagr_3y', splitRule: 'median', logScale: true, showLabels: true });
     expect(migrated).not.toHaveProperty('scope');
     expect(migrated).not.toHaveProperty('includeOutliers');
-    expect(migrated).not.toHaveProperty('logScale');
+    expect(migrated).not.toHaveProperty('orientation');
+    expect(migrated).not.toHaveProperty('zoom');
+    expect(migrated).not.toHaveProperty('bestAtTopRight');
     expect(parseScatterPreferences({ x: 'not-a-metric' })?.splitRule).toBe('peer-median');
   });
 });

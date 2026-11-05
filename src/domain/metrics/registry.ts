@@ -1,4 +1,5 @@
 import type { MetricDefinition } from '../types';
+import metricDirectionConfig from '../../../config/metric-directions.json';
 
 const verifiedDefinitions: MetricDefinition[] = [
   {id:'plan_type',label:'Plan type',group:'Basics',unit:'enum',direction:'neutral',description:'Direct or Regular plan.',availability:'available'},
@@ -56,5 +57,13 @@ const requestedMarkers: MetricDefinition[] = [
 
 const definitions: MetricDefinition[] = [...verifiedDefinitions,...requestedMarkers];
 
-export const metricRegistry = definitions;
-export const metricById = Object.fromEntries(definitions.map((metric) => [metric.id, metric]));
+type DirectionConfig = { direction: 'higher' | 'lower' | 'none'; rationale: string };
+const configuredDirections = metricDirectionConfig as Record<string, DirectionConfig>;
+const configuredDefinitions = definitions.map((definition): MetricDefinition => {
+  const configuration = configuredDirections[definition.id];
+  if (!configuration) throw new Error(`Missing metric direction configuration for ${definition.id}`);
+  return { ...definition, direction: configuration.direction === 'none' ? 'neutral' : configuration.direction };
+});
+
+export const metricRegistry = configuredDefinitions;
+export const metricById = Object.fromEntries(configuredDefinitions.map((metric) => [metric.id, metric]));

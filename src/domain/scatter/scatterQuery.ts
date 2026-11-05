@@ -1,5 +1,5 @@
 import type { ReasonDetail } from '../governance/reasons';
-import { assignQuadrant, computeThreshold, type MetricDirection, type QuadrantId, type SplitRule } from './quadrants';
+import { assignQuadrant, computeSplit, type MetricDirection, type QuadrantId, type SplitRule } from './quadrants';
 
 export type ScatterFund = {
   code: number; name: string; amc: string; subCategory: string; assetClass: string;
@@ -16,7 +16,7 @@ export type ScatterQueryResult = {
   codes: Uint32Array; x: Float32Array; y: Float32Array; quadrants: Uint8Array; selected: Uint8Array;
   percentileX: Float32Array; percentileY: Float32Array; rankX: Float32Array; rankY: Float32Array;
   names: string[]; amcs: string[]; categories: string[]; assetClasses: string[];
-  thresholds: { x: number | null; y: number | null; rule: SplitRule; peerCount: number; notice: string | null };
+  thresholds: { x: number | null; y: number | null; rule: SplitRule; peerCount: number; peerScope: 'sub-category' | 'asset class' | null; subCategoryPeerCount: number; notice: string | null };
   coverage: Record<string, number>; coverageReasons: Record<string, string>; axisCoverage: { x: Record<string, number>; y: Record<string, number> };
   selectedCount: number; notPlotted: Array<{ code: number; name: string; metricId: string; reason: string; detail?: ReasonDetail }>;
   dataBounds: { xMin: number | null; xMax: number | null; yMin: number | null; yMax: number | null };
@@ -41,10 +41,10 @@ function percentile(sorted: readonly number[], value: number, direction: MetricD
   const bounds = sortedBounds(sorted, value);
   return (direction === 'lower' ? bounds.upper : direction === 'higher' ? sorted.length - bounds.lower : bounds.upper) / sorted.length * 100;
 }
-function median(values: readonly number[]): number | null {
-  const sorted = values.slice().sort((a, b) => a - b); if (!sorted.length) return null;
-  const middle = sorted.length >> 1;
-  return sorted.length % 2 ? sorted[middle]! : (sorted[middle - 1]! + sorted[middle]!) / 2;
+function rankPosition(sorted: readonly number[], value: number, direction: MetricDirection): number {
+  const bounds = sortedBounds(sorted, value);
+  if (direction === 'higher') return sorted.length - bounds.upper + 1;
+  return bounds.lower + 1;
 }
 function finiteBounds(values: readonly number[]): [number | null, number | null] {
   if (!values.length) return [null, null];
@@ -54,7 +54,7 @@ function finiteBounds(values: readonly number[]): [number | null, number | null]
 /** Plots only selected funds in tray order; the worker computes a separate, unplotted peer reference. */
 export function computeScatterQuery(funds: readonly ScatterFund[], options: ScatterQueryOptions): ScatterQueryResult {
   const byCode = new Map(funds.map(fund => [fund.code, fund]));
-  const selectedFunds = options.selectedCodes.flatMap(code => { const fund = byCode.get(code); return fund ? [fund] : []; });
+  const selectedFunds = options.selectedCodes.slice(0, 6).flatMap(code => { const fund = byCode.get(code); return fund ? [fund] : []; });
   const coverage: Record<string, number> = {};
   const coverageReasonCounts = new Map<string, Map<string, number>>();
   const axisCoverage = { x: {} as Record<string, number>, y: {} as Record<string, number> };
@@ -81,46 +81,23 @@ export function computeScatterQuery(funds: readonly ScatterFund[], options: Scat
     }
   }
 
-  const selectedSet = new Set(options.selectedCodes);
+  const selectedSet = new Set(selectedFunds.map(fund => fund.code));
   const selectedCategories = new Set(selectedFunds.map(fund => fund.subCategory).filter(Boolean));
   const selectedAssets = new Set(selectedFunds.map(fund => fund.assetClass).filter(Boolean));
   // A peer reference is external to the selected sample. When selections span
   // sub-categories, pool peers from those selected groups and take their median.
-  let peerFunds = funds.filter(fund => fund.lifecycle === 'active' && !selectedSet.has(fund.code) && selectedCategories.has(fund.subCategory)
+  const subCategoryPeers = funds.filter(fund => fund.lifecycle === 'active' && !selectedSet.has(fund.code) && selectedCategories.has(fund.subCategory)
     && finiteMetric(fund, options.xMetric) !== null && finiteMetric(fund, options.yMetric) !== null);
-  if (peerFunds.length < 10) peerFunds = funds.filter(fund => fund.lifecycle === 'active' && !selectedSet.has(fund.code) && selectedAssets.has(fund.assetClass)
+  let peerFunds = subCategoryPeers;
+  let peerScope: ScatterQueryResult['thresholds']['peerScope'] = 'sub-category';
+  if (peerFunds.length < 10) { peerFunds = funds.filter(fund => fund.lifecycle === 'active' && !selectedSet.has(fund.code) && selectedAssets.has(fund.assetClass)
     && finiteMetric(fund, options.xMetric) !== null && finiteMetric(fund, options.yMetric) !== null);
-  const peerCount = peerFunds.length;
-  const peerValue = (metricId: string): number | null => {
-    if (peerCount < 10) return null;
-    return median(peerFunds.map(fund => finiteMetric(fund, metricId)).filter((value): value is number => value !== null));
-  };
+    peerScope = peerFunds.length >= 10 ? 'asset class' : null;
+  }
   const xs = plotted.map(point => point.x); const ys = plotted.map(point => point.y);
-  const requested = options.splitRule;
-  let rule: SplitRule = requested; let notice: string | null = null;
-  let thresholdX: number | null = null; let thresholdY: number | null = null;
-  if (requested === 'peer-median') {
-    thresholdX = peerValue(options.xMetric); thresholdY = peerValue(options.yMetric);
-    if (thresholdX === null || thresholdY === null) {
-      if (plotted.length >= 3) { rule = 'median'; notice = `Peer median needs 10 matching peers; using median of ${plotted.length} selected funds.`; }
-      else if (plotted.length >= 2) { rule = 'mean'; notice = `Peer median needs 10 matching peers and selected median needs 3 funds; using mean of ${plotted.length} selected funds.`; }
-      else if (Number.isFinite(options.customX) && Number.isFinite(options.customY)) { rule = 'custom'; notice = 'Peer reference is unavailable; using your custom split.'; }
-      else { rule = 'custom'; notice = 'Peer reference needs 10 matching peers. Add funds or enter a custom split to show quadrants.'; }
-    }
-  } else if (requested === 'median' && plotted.length < 3) {
-    if (plotted.length >= 2) { rule = 'mean'; notice = `Median of selected needs 3 funds; using mean of ${plotted.length} selected funds.`; }
-    else { rule = 'custom'; notice = 'Median of selected needs 3 funds; enter a custom split to show quadrants.'; }
-  } else if (requested === 'mean' && plotted.length < 2) {
-    rule = 'custom'; notice = 'Mean of selected needs 2 funds; enter a custom split to show quadrants.';
-  }
-  if (rule === 'median') { thresholdX = median(xs); thresholdY = median(ys); }
-  else if (rule === 'mean') {
-    thresholdX = xs.length ? xs.reduce((sum, value) => sum + value, 0) / xs.length : null;
-    thresholdY = ys.length ? ys.reduce((sum, value) => sum + value, 0) / ys.length : null;
-  } else if (rule === 'custom') {
-    thresholdX = typeof options.customX === 'number' && Number.isFinite(options.customX) ? options.customX : null;
-    thresholdY = typeof options.customY === 'number' && Number.isFinite(options.customY) ? options.customY : null;
-  }
+  const peerPairs = peerFunds.flatMap(fund => { const x = finiteMetric(fund, options.xMetric); const y = finiteMetric(fund, options.yMetric); return x === null || y === null ? [] : [{ x, y }]; });
+  const split = computeSplit({ requested: options.splitRule, plotted, peers: peerPairs, customX: options.customX, customY: options.customY });
+  const { rule, notice, peerCount } = split; const thresholdX = split.x; const thresholdY = split.y;
 
   const sortedX = xs.slice().sort((a, b) => a - b); const sortedY = ys.slice().sort((a, b) => a - b);
   const codes = new Uint32Array(plotted.length); const x = new Float32Array(plotted.length); const y = new Float32Array(plotted.length);
@@ -129,17 +106,15 @@ export function computeScatterQuery(funds: readonly ScatterFund[], options: Scat
   const names: string[] = []; const amcs: string[] = []; const categories: string[] = []; const assetClasses: string[] = [];
   plotted.forEach((point, index) => {
     codes[index] = point.fund.code; x[index] = point.x; y[index] = point.y;
-    quadrants[index] = thresholdX === null || thresholdY === null || selectedFunds.length < 2 ? 0 : assignQuadrant(point.x, point.y, thresholdX, thresholdY, options.dirX, options.dirY);
-    const bx = sortedBounds(sortedX, point.x); const by = sortedBounds(sortedY, point.y);
-    percentileX[index] = sortedX.length ? bx.upper / sortedX.length * 100 : 0;
-    percentileY[index] = sortedY.length ? by.upper / sortedY.length * 100 : 0;
-    rankX[index] = percentile(sortedX, point.x, options.dirX); rankY[index] = percentile(sortedY, point.y, options.dirY);
+    quadrants[index] = thresholdX === null || thresholdY === null ? 0 : assignQuadrant(point.x, point.y, thresholdX, thresholdY, options.dirX, options.dirY);
+    percentileX[index] = percentile(sortedX, point.x, options.dirX); percentileY[index] = percentile(sortedY, point.y, options.dirY);
+    rankX[index] = rankPosition(sortedX, point.x, options.dirX); rankY[index] = rankPosition(sortedY, point.y, options.dirY);
     names.push(point.fund.name); amcs.push(point.fund.amc); categories.push(point.fund.subCategory); assetClasses.push(point.fund.assetClass);
   });
   const [xMin, xMax] = finiteBounds(xs); const [yMin, yMax] = finiteBounds(ys);
   const coverageReasons: Record<string, string> = {};
   for (const [id, reasons] of coverageReasonCounts) coverageReasons[id] = [...reasons].sort((a, b) => b[1] - a[1])[0]![0];
   return { codes, x, y, quadrants, selected, percentileX, percentileY, rankX, rankY, names, amcs, categories, assetClasses,
-    thresholds: { x: thresholdX, y: thresholdY, rule, peerCount, notice }, coverage, coverageReasons, axisCoverage,
+    thresholds: { x: thresholdX, y: thresholdY, rule, peerCount, peerScope, subCategoryPeerCount: subCategoryPeers.length, notice }, coverage, coverageReasons, axisCoverage,
     selectedCount: selectedFunds.length, notPlotted, dataBounds: { xMin, xMax, yMin, yMax } };
 }

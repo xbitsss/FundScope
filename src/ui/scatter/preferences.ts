@@ -4,7 +4,7 @@ import type { ScatterPreferences } from './types';
 
 export const defaultScatterPreferences: ScatterPreferences = {
   x: 'std_dev', y: 'cagr_3y', splitRule: 'peer-median', customX: null, customY: null,
-  bestAtTopRight: false, showTable: false, directionOverrides: {},
+  logScale: false, showLabels: true, showTable: false, directionOverrides: {},
 };
 
 /** Reads old preference records while deliberately dropping removed scope/outlier fields. */
@@ -24,6 +24,6 @@ export function parseScatterPreferences(raw: unknown): ScatterPreferences | unde
     splitRule: splits.includes(value.splitRule as SplitRule) ? value.splitRule as SplitRule : defaultScatterPreferences.splitRule,
     customX: typeof value.customX === 'number' && Number.isFinite(value.customX) ? value.customX : null,
     customY: typeof value.customY === 'number' && Number.isFinite(value.customY) ? value.customY : null,
-    bestAtTopRight: value.bestAtTopRight === true, showTable: value.showTable === true, directionOverrides,
+    logScale: value.logScale === true, showLabels: value.showLabels !== false, showTable: value.showTable === true, directionOverrides,
   };
 }
