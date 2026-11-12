@@ -4,9 +4,10 @@ import type { ScoreFactor } from '../domain/scoring/engine';
 import { ScreenerEngine } from './core';
 import type { EngineSort } from './core';
 import type { ScatterQueryOptions, ScatterQueryResult } from '../domain/scatter/scatterQuery';
+import { decodeFundColumns } from '../adapters/snapshot/columnar';
 
 type Message =
-  | { kind: 'load'; id: number; funds: Fund[] }
+  | { kind: 'load'; id: number; funds?: Fund[]; indexBuffer?: ArrayBuffer }
   | { kind: 'query'; id: number; filters: ScreenerFilters; sort: EngineSort; now: number; factors: ScoreFactor[] }
   | { kind: 'scatter'; id: number; options: ScatterQueryOptions };
 type WorkerScope = { onmessage: ((event: MessageEvent<Message>) => void) | null; postMessage: (message: unknown, transfer?: Transferable[]) => void };
@@ -19,7 +20,9 @@ scope.onmessage = event => {
     if (message.kind === 'load') {
       const started = performance.now();
       const phaseTimings: Record<string, number> = {};
-      engine = new ScreenerEngine(message.funds, (phase, milliseconds) => { phaseTimings[phase] = milliseconds; });
+      const funds=message.indexBuffer?decodeFundColumns(message.indexBuffer):message.funds;
+      if(!funds)throw new Error('Screener worker received no fund list.');
+      engine = new ScreenerEngine(funds, (phase, milliseconds) => { phaseTimings[phase] = milliseconds; });
       scope.postMessage({ kind: 'ready', id: message.id, size: engine.size, categoryTree: engine.categoryTree, buildMs: performance.now() - started, phaseTimings });
       return;
     }

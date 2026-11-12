@@ -6,6 +6,8 @@ import { previousConflictFrom, reconcileClassification } from '../domain/taxonom
 import { normalizeCategory } from '../domain/taxonomy/categoryNormalize';
 import type { ParsedSchemeRow } from '../domain/taxonomy/navFileParser';
 import type { ParsedAmfiSchemeMasterRow } from '../domain/parse/amfiSchemeMaster';
+import { invoke } from '@tauri-apps/api/core';
+import { encodeNormalizedFundIndex, fromNormalizedFundRows, toNormalizedFundWrite, type NormalizedFundListRow, type NormalizedMetricRow } from '../adapters/sqlite/normalized';
 import { finishPerfMeasurement, startPerfMeasurement } from './perf';
 
 let dbPromise: Promise<Database> | null = null;
@@ -24,6 +26,11 @@ const openDb = () => {
   return dbPromise;
 };
 const SQLITE_WRITE_BATCH_SIZE = 200;
+let normalizedStoreReady=false;
+let normalizedMigrationPromise:Promise<boolean>|null=null;
+const fundIndexBuffers=new WeakMap<Fund[],ArrayBuffer>();
+export function getFundIndexBuffer(funds:Fund[]):ArrayBuffer|undefined{return fundIndexBuffers.get(funds);}
+export async function waitForNormalizedStorage():Promise<boolean>{if(!isTauri())return true;if(normalizedStoreReady)return true;return normalizedMigrationPromise?normalizedMigrationPromise:false;}
 const requestResult = <T>(request: IDBRequest<T>) => new Promise<T>((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
 async function browserDb(): Promise<IDBDatabase> {
   return new Promise((resolve,reject)=>{
@@ -47,6 +54,7 @@ export async function initializeRepository():Promise<void>{
       await db.execute(`CREATE TABLE IF NOT EXISTS app_state (state_key TEXT PRIMARY KEY, payload TEXT NOT NULL)`);
       await db.execute(`CREATE TABLE IF NOT EXISTS scheme_taxonomy (scheme_code INTEGER PRIMARY KEY, category_raw TEXT NOT NULL, sub_category TEXT NOT NULL, asset_class TEXT NOT NULL, rule_id TEXT NOT NULL, taxonomy_version INTEGER NOT NULL, first_seen_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL, class_status TEXT NOT NULL DEFAULT 'UNCONFIRMED', class_detail TEXT, class_checked_at INTEGER)`);
       await db.execute(`CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY,value TEXT NOT NULL)`);
+      await createNormalizedFundTables(db);
       await backupBeforeTaxonomyMigration(db);
       await ensureTaxonomyColumns(db);
       await db.execute(`CREATE TABLE IF NOT EXISTS taxonomy_conflicts (id INTEGER PRIMARY KEY AUTOINCREMENT, scheme_code INTEGER NOT NULL, stored_category TEXT NOT NULL, incoming_category TEXT NOT NULL, stored_class TEXT NOT NULL, incoming_class TEXT NOT NULL, stored_rule TEXT NOT NULL, incoming_rule TEXT NOT NULL, stored_version INTEGER NOT NULL, incoming_version INTEGER NOT NULL, observed_at INTEGER NOT NULL, UNIQUE(scheme_code,stored_category,incoming_category,stored_class,incoming_class,stored_rule,incoming_rule,stored_version,incoming_version))`);
@@ -55,8 +63,9 @@ export async function initializeRepository():Promise<void>{
       await db.execute(`CREATE TABLE IF NOT EXISTS unmapped_category_members (scheme_code INTEGER NOT NULL,category_key TEXT NOT NULL,source_id TEXT NOT NULL,sample_raw TEXT NOT NULL,PRIMARY KEY(scheme_code,category_key,source_id)) WITHOUT ROWID`);
       await db.execute(`CREATE TABLE IF NOT EXISTS classification_audit (id INTEGER PRIMARY KEY AUTOINCREMENT,scheme_code INTEGER NOT NULL,audited_at INTEGER NOT NULL,auditor TEXT,sid_category TEXT NOT NULL,sid_url TEXT,expected_class TEXT NOT NULL,agrees INTEGER NOT NULL,notes TEXT)`);
       await db.execute(`CREATE TABLE IF NOT EXISTS source_scheme_map (scheme_code INTEGER NOT NULL,source_id TEXT NOT NULL,source_scheme_code TEXT NOT NULL,source_name TEXT NOT NULL,join_method TEXT NOT NULL,confidence TEXT NOT NULL,matched_at INTEGER NOT NULL,PRIMARY KEY(scheme_code,source_id,source_scheme_code,source_name)) WITHOUT ROWID`);
-      await migrateTaxonomyPayloads();
-      await backfillTaxonomy();
+      const typedMarker=await db.select<{value:string}[]>('SELECT value FROM schema_meta WHERE key=$1',['normalized_fund_storage_v4']);
+      normalizedStoreReady=typedMarker[0]?.value==='applied';
+      if(!normalizedStoreReady)startNormalizedFundMigration(db);
     }else{await browserDb();await migrateTaxonomyPayloads();await backfillTaxonomy();}
   }catch(e){
     console.error('Database initialization failed:',e);
@@ -64,6 +73,26 @@ export async function initializeRepository():Promise<void>{
   }finally{
     finishPerfMeasurement('initializeRepository',perfStarted);
   }
+}
+async function createNormalizedFundTables(db:Database):Promise<void>{
+  await db.execute(`CREATE TABLE IF NOT EXISTS fund_list (scheme_code INTEGER PRIMARY KEY,isin_growth TEXT,isin_reinvestment TEXT,name TEXT NOT NULL,amc TEXT NOT NULL,category TEXT NOT NULL,asset_class TEXT NOT NULL,class_rule_id TEXT NOT NULL,taxonomy_version INTEGER NOT NULL,sub_category TEXT NOT NULL,management TEXT,fund_group TEXT,risk_band TEXT,philosophy TEXT,speciality TEXT NOT NULL DEFAULT '',lifecycle TEXT,structure TEXT NOT NULL,plan TEXT NOT NULL,option TEXT NOT NULL,nav REAL NOT NULL,nav_date INTEGER NOT NULL,class_status TEXT,header_raw TEXT,history_fetched_at INTEGER,history_status TEXT,history_attempts INTEGER,history_last_error TEXT,history_next_retry_at INTEGER,metrics_nav_as_of INTEGER)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_amc ON fund_list(amc)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_category ON fund_list(sub_category)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_asset_class ON fund_list(asset_class)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_structure ON fund_list(structure)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_plan ON fund_list(plan)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_option ON fund_list(option)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_management ON fund_list(management)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_nav_date ON fund_list(nav_date)`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS fund_metrics (scheme_code INTEGER NOT NULL,metric_id TEXT NOT NULL,metric_value REAL,reason_code TEXT,PRIMARY KEY(scheme_code,metric_id),FOREIGN KEY(scheme_code) REFERENCES fund_list(scheme_code) ON DELETE CASCADE) WITHOUT ROWID`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_metrics_id_value ON fund_metrics(metric_id,metric_value)`);
+  await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_group ON fund_list(fund_group)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_risk_band ON fund_list(risk_band)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_fund_list_lifecycle ON fund_list(lifecycle)`);
+  await db.execute(`CREATE TABLE IF NOT EXISTS fund_detail (scheme_code INTEGER PRIMARY KEY,payload TEXT NOT NULL,FOREIGN KEY(scheme_code) REFERENCES fund_list(scheme_code) ON DELETE CASCADE)`);await db.execute(`CREATE INDEX IF NOT EXISTS idx_nav_scheme_date ON nav(scheme_code,date DESC)`);
+}
+function startNormalizedFundMigration(db:Database):void{
+  if(normalizedMigrationPromise)return;
+  normalizedMigrationPromise=(async()=>{
+    try{
+      await migrateTaxonomyPayloads();
+      const backfilled=await db.select<{value:string}[]>('SELECT value FROM schema_meta WHERE key=$1',['taxonomy_observations_backfilled_v1']);
+      if(!backfilled[0]){await backfillTaxonomy();await db.execute('INSERT INTO schema_meta(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=excluded.value',['taxonomy_observations_backfilled_v1','applied']);}
+      await invoke('migrate_normalized_fund_storage');
+      normalizedStoreReady=true;
+      return true;
+    }catch(error){normalizedStoreReady=false;console.error('Normalized SQLite migration failed; legacy scheme payloads remain available:',error);return false;}
+  })();
 }
 async function ensureTaxonomyColumns(db:Database):Promise<void>{
   const columns=await db.select<{name:string}[]>('PRAGMA table_info(scheme_taxonomy)');const names=new Set(columns.map(column=>column.name));
@@ -104,8 +133,15 @@ export async function getFunds():Promise<Fund[]>{
   const readStarted=startPerfMeasurement();
   try{
     if(isTauri()){
-      const db=await openDb();const selectStarted=startPerfMeasurement();const rows=await db.select<{payload:string}[]>('SELECT payload FROM schemes');finishPerfMeasurement('getFunds SQL select',selectStarted,`${rows.length.toLocaleString('en-IN')} rows`);
-      console.log(`Loaded ${rows.length} funds from SQLite`);
+      const db=await openDb();
+      if(normalizedStoreReady){
+        const selectStarted=startPerfMeasurement();const [rows,metricRows]=await Promise.all([db.select<NormalizedFundListRow[]>('SELECT * FROM fund_list ORDER BY scheme_code'),db.select<NormalizedMetricRow[]>('SELECT scheme_code,metric_id,metric_value,reason_code FROM fund_metrics ORDER BY scheme_code,metric_id')]);finishPerfMeasurement('getFunds typed SQLite select',selectStarted,`${rows.length.toLocaleString('en-IN')} funds + ${metricRows.length.toLocaleString('en-IN')} metrics`);
+        const funds=fromNormalizedFundRows(rows,metricRows);fundIndexBuffers.set(funds,encodeNormalizedFundIndex(rows,metricRows));finishPerfMeasurement('getFunds typed decode',readStarted,`${funds.length.toLocaleString('en-IN')} funds; no JSON row parsing`);return funds;
+      }
+      const selectStarted=startPerfMeasurement();let rows:{payload:string}[]=[];try{rows=await db.select<{payload:string}[]>('SELECT payload FROM schemes ORDER BY scheme_code');}catch{/* The typed migration may already have removed the duplicate live table. */}
+      if(!rows.length)try{rows=await db.select<{payload:string}[]>('SELECT payload FROM schemes_typed_v4_backup ORDER BY scheme_code');}catch{/* A first-run database has no legacy backup. */}
+      finishPerfMeasurement('getFunds SQL select',selectStarted,`${rows.length.toLocaleString('en-IN')} rows`);
+      console.log(`Loaded ${rows.length} funds from legacy SQLite storage`);
       const normalizeStarted=startPerfMeasurement();const funds=rows.map((row:{payload:string})=>normalizeFund(JSON.parse(row.payload) as Fund));finishPerfMeasurement('getFunds JSON parse + normalize',normalizeStarted,`${funds.length.toLocaleString('en-IN')} rows`);return funds;
     }
     const db=await browserDb();const tx=db.transaction('funds','readonly');
@@ -118,6 +154,17 @@ export async function getFunds():Promise<Fund[]>{
   }finally{
     finishPerfMeasurement('getFunds total',readStarted);
   }
+}
+export async function loadFundDetails(code:number):Promise<Partial<Fund>>{
+  if(!isTauri())return {};
+  const db=await openDb();const rows=await db.select<{payload:string}[]>('SELECT payload FROM fund_detail WHERE scheme_code=$1',[code]);if(!rows[0])return {};
+  try{return JSON.parse(rows[0].payload) as Partial<Fund>;}catch{return {};}
+}
+export async function saveFundMetrics(funds:Fund[]):Promise<void>{
+  if(!isTauri()){await saveFunds(funds);return;}
+  await waitForNormalizedStorage();
+  if(!normalizedStoreReady){await saveFunds(funds);return;}
+  await invoke('write_normalized_funds',{records:funds.map(fund=>({code:fund.code,metrics:Object.entries(fund.metrics??{}).map(([metricId,value])=>({metricId,value:typeof value==='number'&&Number.isFinite(value)?value:null,reasonCode:fund.metricReasons?.[metricId]??null}))})),metricsOnly:true});
 }
 export interface SchemeMasterRecord {schemeCode:number;name:string;amc:string;categoryRaw:string;headerRaw:string;structure:ParsedSchemeRow['structure'];plan:string|null;option:string|null;isinA:string|null;isinB:string|null;nav:number|null;navDate:number|null;amfiSchemeMaster?:ParsedAmfiSchemeMasterRow;assetClass:Fund['assetClass'];classRuleId:string;classStatus:NonNullable<Fund['classStatus']>;classDetail:Fund['classDetail'];taxonomyVersion:number;firstSeenAt:number;lastSeenAt:number}
 export async function saveSchemeMasterRows(rows:ParsedSchemeRow[],currentFunds:Fund[],cachedFunds:Fund[]):Promise<void>{
@@ -147,7 +194,7 @@ function normalizeFund(fund:Fund,newestNavDate=fund.navDate):Fund{
 }
 async function migrateTaxonomyPayloads():Promise<void>{
   if(isTauri()){
-    const db=await openDb();const rows=await db.select<{scheme_code:number;payload:string}[]>('SELECT scheme_code,payload FROM schemes');const funds=rows.flatMap(row=>{try{return [JSON.parse(row.payload) as Fund];}catch{return [];}});const newestNavDate=Math.max(0,...funds.map(fund=>fund.navDate));const changed=funds.flatMap(fund=>fund.taxonomyVersion===TAXONOMY_VERSION&&fund.classStatus&&fund.classDetail&&fund.classificationProvenance&&fund.lifecycle?[]:[normalizeFund(fund,newestNavDate)]);
+    const db=await openDb();const applied=await db.select<{value:string}[]>('SELECT value FROM schema_meta WHERE key=$1',['migration_0003_classification_v2']);if(applied[0]?.value==='applied')return;const rows=await db.select<{scheme_code:number;payload:string}[]>('SELECT scheme_code,payload FROM schemes ORDER BY scheme_code');const funds=rows.flatMap(row=>{try{return [JSON.parse(row.payload) as Fund];}catch{return [];}});const newestNavDate=Math.max(0,...funds.map(fund=>fund.navDate));const changed=funds.flatMap(fund=>fund.taxonomyVersion===TAXONOMY_VERSION&&fund.classStatus&&fund.classDetail&&fund.classificationProvenance&&fund.lifecycle?[]:[normalizeFund(fund,newestNavDate)]);
     for(let start=0;start<changed.length;start+=SQLITE_WRITE_BATCH_SIZE){const batch=changed.slice(start,start+SQLITE_WRITE_BATCH_SIZE);for(const fund of batch)await db.execute('UPDATE schemes SET payload=$1 WHERE scheme_code=$2',[JSON.stringify(fund),fund.code]);}
     await db.execute('INSERT INTO schema_meta(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=excluded.value',['taxonomy_version',String(TAXONOMY_VERSION)]);
     await db.execute('INSERT INTO schema_meta(key,value) VALUES($1,$2) ON CONFLICT(key) DO UPDATE SET value=excluded.value',['migration_0003_classification_v2','applied']);
@@ -165,20 +212,14 @@ export async function reconcileFundTaxonomy(funds:Fund[]):Promise<Fund[]>{
   return normalized.map(fund=>{const row=byCode.get(fund.code);if(!row)return enforceClassificationMetricGate(fund);const stored=row as {category_raw?:string;sub_category?:string;asset_class?:string;rule_id?:string;taxonomy_version?:number;class_status?:string;class_detail?:string|null;categoryRaw?:string;subCategory?:string;assetClass?:string;ruleId?:string;taxonomyVersion?:number;classStatus?:string;classDetail?:Fund['classDetail']};const assetClass=stored.asset_class??stored.assetClass;const classRuleId=stored.rule_id??stored.ruleId;const taxonomyVersion=stored.taxonomy_version??stored.taxonomyVersion;const subCategory=stored.sub_category??stored.subCategory;const boundCategory=stored.category_raw??stored.categoryRaw;const storedStatus=stored.class_status??stored.classStatus;const storedDetail=typeof stored.class_detail==='string'?safeParseClassDetail(stored.class_detail):stored.classDetail;if(!isAssetClass(assetClass)||!classRuleId||!taxonomyVersion)return enforceClassificationMetricGate(fund);const userRebound=classRuleId==='USER_REBIND_OTHER';const drift=taxonomyVersion===TAXONOMY_VERSION&&assetClass!==fund.assetClass&&!userRebound;if(!drift)return enforceClassificationMetricGate({...fund,assetClass,classRuleId,taxonomyVersion,subCategory:subCategory??fund.subCategory,classStatus:(storedStatus as Fund['classStatus'])??fund.classStatus,classDetail:storedDetail??fund.classDetail});const detail=fund.classDetail?{...fund.classDetail,flags:[...new Set([...fund.classDetail.flags,'CATEGORY_DRIFT'])]}:fund.classDetail;const reason={code:'NA_CATEGORY' as const,cause:'CLASSIFICATION_UNCERTAIN' as const,fundAssetClass:assetClass,subCategory:subCategory??fund.subCategory,s1Class:fund.classDetail?.s1.assetClass??fund.assetClass,s2Class:fund.classDetail?.s2?.assetClass,s3Class:fund.classDetail?.s3?.assetClass};const gated=['beta','jensen_alpha','treynor','tracking_error','r_squared','upside_capture','downside_capture','information_ratio','benchmark_outperformance_ratio'];return enforceClassificationMetricGate({...fund,assetClass,classRuleId,taxonomyVersion,subCategory:subCategory??fund.subCategory,classStatus:'CONFLICT' as const,classDetail:detail,metrics:{...fund.metrics,...Object.fromEntries(gated.map(id=>[id,null]))},metricReasons:{...fund.metricReasons,...Object.fromEntries(gated.map(id=>[id,'NA_CATEGORY']))},metricReasonDetails:{...fund.metricReasonDetails,...Object.fromEntries(gated.map(id=>[id,reason]))},category:boundCategory||fund.category});});
 }
 function safeParseClassDetail(raw:string):Fund['classDetail']{try{return JSON.parse(raw) as Fund['classDetail'];}catch{return undefined;}}
-export async function saveFunds(funds:Fund[],onProgress?:(saved:number,total:number)=>void):Promise<void>{
-  const perfStarted=startPerfMeasurement();const initialCount=funds.length;const normalizeStarted=startPerfMeasurement();funds=funds.map(fund=>enforceClassificationMetricGate(normalizeFund(fund)));finishPerfMeasurement('saveFunds normalize + taxonomy gate',normalizeStarted,`${funds.length.toLocaleString('en-IN')} rows`);await recordTaxonomyObservations(funds);
+export async function saveFunds(funds:Fund[],onProgress?:(saved:number,total:number)=>void,options:{skipTaxonomyObservation?:boolean}={}):Promise<void>{
+  const perfStarted=startPerfMeasurement();const initialCount=funds.length;
+  if(isTauri())await waitForNormalizedStorage();
+  const normalizeStarted=startPerfMeasurement();funds=funds.map(fund=>enforceClassificationMetricGate(isTauri()&&normalizedStoreReady&&fund.classRuleId&&fund.taxonomyVersion===TAXONOMY_VERSION&&fund.classStatus?fund:normalizeFund(fund)));finishPerfMeasurement('saveFunds normalize + taxonomy gate',normalizeStarted,`${funds.length.toLocaleString('en-IN')} rows`);
+  if(!options.skipTaxonomyObservation&&(!isTauri()||!normalizedStoreReady||funds.some(fund=>fund.classDetail)))await recordTaxonomyObservations(funds);
   if(isTauri()){
-    const db=await openDb();
-    for(let start=0;start<funds.length;start+=SQLITE_WRITE_BATCH_SIZE){
-      const batch=funds.slice(start,start+SQLITE_WRITE_BATCH_SIZE);
-      const values:string[]=[];const bindings:unknown[]=[];
-      for(let index=0;index<batch.length;index++){
-        const first=index*2+1;values.push(`($${first},$${first+1})`);
-        const fund=batch[index]!;bindings.push(fund.code,JSON.stringify(fund));
-      }
-      await db.execute(`INSERT INTO schemes(scheme_code,payload) VALUES ${values.join(',')} ON CONFLICT(scheme_code) DO UPDATE SET payload=excluded.payload`,bindings);
-      onProgress?.(Math.min(start+batch.length,funds.length),funds.length);
-    }
+    if(normalizedStoreReady){await invoke('write_normalized_funds',{records:funds.map(toNormalizedFundWrite),metricsOnly:false});onProgress?.(funds.length,funds.length);}
+    else{const db=await openDb();for(let start=0;start<funds.length;start+=SQLITE_WRITE_BATCH_SIZE){const batch=funds.slice(start,start+SQLITE_WRITE_BATCH_SIZE);const values:string[]=[];const bindings:unknown[]=[];for(let index=0;index<batch.length;index++){const first=index*2+1;values.push(`($${first},$${first+1})`);const fund=batch[index]!;bindings.push(fund.code,JSON.stringify(fund));}await db.execute(`INSERT INTO schemes(scheme_code,payload) VALUES ${values.join(',')} ON CONFLICT(scheme_code) DO UPDATE SET payload=excluded.payload`,bindings);onProgress?.(Math.min(start+batch.length,funds.length),funds.length);}}
   }else{
     const db=await browserDb();const tx=db.transaction('funds','readwrite');
     for(const fund of funds)tx.objectStore('funds').put(fund);
@@ -189,22 +230,27 @@ export async function saveFunds(funds:Fund[],onProgress?:(saved:number,total:num
 /** Replace the local catalogue with a verified snapshot while preserving user settings and audit stores. */
 export interface StoredNavHistory { code:number; snapshotId:string; points:NavPoint[]; loadedAt:number }
 export async function getNavHistory(code:number):Promise<StoredNavHistory|null>{
-  if(isTauri())return null;
+  if(isTauri()){if(!normalizedStoreReady)return null;const db=await openDb();const rows=await db.select<{date:number;nav:number}[]>('SELECT date,nav FROM nav WHERE scheme_code=$1 ORDER BY date',[code]);if(!rows.length)return null;return {code,snapshotId:'desktop',points:rows.map(row=>({date:Number(row.date),nav:Number(row.nav)})),loadedAt:Date.now()};}
   const db=await browserDb();const row=await requestResult(db.transaction('nav_history','readonly').objectStore('nav_history').get(code)) as StoredNavHistory|undefined;return row??null;
 }
+export async function getLatestNavPoints(code:number,limit=365):Promise<NavPoint[]>{
+  const count=Math.max(1,Math.min(10_000,Math.floor(limit)));
+  if(isTauri()){const db=await openDb();const rows=await db.select<{date:number;nav:number}[]>('SELECT date,nav FROM nav WHERE scheme_code=$1 ORDER BY date DESC LIMIT $2',[code,count]);return rows.map(row=>({date:Number(row.date),nav:Number(row.nav)})).reverse();}
+  const saved=await getNavHistory(code);return saved?.points.slice(-count)??[];
+}
 export async function saveNavHistory(record:StoredNavHistory):Promise<void>{
-  if(isTauri())return;
+  if(isTauri()){await waitForNormalizedStorage();if(!normalizedStoreReady)return;await invoke('save_normalized_nav_history',{code:record.code,points:record.points,loadedAt:record.loadedAt});return;}
   const db=await browserDb();const tx=db.transaction('nav_history','readwrite');tx.objectStore('nav_history').put(record);await new Promise<void>((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});
 }
 export async function replaceFunds(funds:Fund[],snapshotId=''):Promise<void>{
   if(isTauri()){
-    const db=await openDb();
-    await db.execute('DELETE FROM schemes');
+    await waitForNormalizedStorage();
+    if(normalizedStoreReady){await invoke('write_normalized_funds',{records:funds.map(toNormalizedFundWrite),metricsOnly:false,replaceAll:true});return;}
+    const db=await openDb();await db.execute('DELETE FROM schemes');await saveFunds(funds);return;
   }else{
     const db=await browserDb();const old=await requestResult(db.transaction('funds','readonly').objectStore('funds').getAll()) as Fund[];const previousSnapshot=await requestResult(db.transaction('state','readonly').objectStore('state').get('snapshot_id')) as {key:string;value:string}|undefined;const preserve=Boolean(snapshotId&&previousSnapshot?.value===snapshotId);const byCode=new Map(old.map(fund=>[fund.code,fund]));const tx=db.transaction(['funds','nav_history','state'],'readwrite');tx.objectStore('funds').clear();for(const fund of funds){const prior=byCode.get(fund.code);tx.objectStore('funds').put(preserve&&prior?.history?.length?{...fund,history:prior.history,historyFetchedAt:prior.historyFetchedAt}:fund);}if(snapshotId)tx.objectStore('state').put({key:'snapshot_id',value:snapshotId});
     await new Promise<void>((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});
   }
-  if(isTauri())await saveFunds(funds);
 }
 const benchmarkGatedMetrics=['beta','r_squared','jensen_alpha','treynor','information_ratio','tracking_error','upside_capture','downside_capture','benchmark_outperformance_ratio'];
 function enforceClassificationMetricGate(fund:Fund):Fund{

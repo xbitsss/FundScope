@@ -10,7 +10,9 @@ The columnar index stores dictionaries and typed columns for list, facet, and me
 
 ## Local desktop app
 
-Tauri continues to use the existing local repository and SQLite persistence APIs. The columnar static snapshot path is specific to the hosted web gate. A normalized SQLite `schemes`/`detail` table migration and direct SQL-to-typed-array desktop path are still future work; desktop startup currently retains the payload repository.
+Tauri keeps SQLite as its local data store. Migration 0004 creates an indexed `fund_list` table for list/facet values, `fund_metrics` for typed nullable metric values and reason codes, `fund_detail` for lazy provenance JSON, and an index on the existing `(scheme_code,date)` NAV table. `schema_meta.normalized_fund_storage_v4` records completion. The migration copies the old JSON payload table to `schemes_typed_v4_backup`, projects each saved fund into typed rows inside a SQLite transaction, checks the migrated row count, then removes the duplicate live payload table. A failed migration rolls back and keeps the payload table; a successful migration keeps the backup for recovery.
+
+The first migration runs in the background while the app can read the old payloads. Later launches read only typed list and metric columns; they do not parse a JSON payload per scheme. Details are read by code when a fund drawer opens, and NAV points are read from the normalized history table. The desktop reader encodes the typed list into the existing compact columnar format and transfers its buffer to the screener worker, which decodes and indexes it away from React. Metric-only recomputes use a separate transaction and do not rewrite list/detail columns. The hosted encrypted snapshot path remains separate and unchanged.
 
 ## Integrity and missing values
 
@@ -18,7 +20,7 @@ The manifest includes each file's ciphertext hash and byte length. The reader ch
 
 ## Performance boundary
 
-The local Node benchmark measures only deterministic filter-core work. It does not represent phone CPU throttling, worker transfer, browser paint, scroll frame rate, memory pressure, or network. First download time depends on the user's network. See [`PERF_2026-11-02.md`](PERF_2026-11-02.md) for the measured data and limitations.
+The local Node benchmark measures only deterministic filter-core work. It does not represent phone CPU throttling, worker transfer, browser paint, scroll frame rate, memory pressure, or network. First download time depends on the user's network. See [`PERF_2026-11-13.md`](PERF_2026-11-13.md) for the measured data and limitations.
 
 ## Applied filter chips
 

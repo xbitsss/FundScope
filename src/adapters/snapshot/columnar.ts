@@ -10,6 +10,16 @@ const idToReason = new Map(reasonCodes.map((reason, index) => [index + 1, reason
 type Field = typeof fields[number];
 interface Header { format: 'fundscope-columnar-v1'; count: number; fields: Field[]; dictionaries: Record<Field, string[]>; metrics: string[]; reasonCodes: string[] }
 
+export interface NormalizedFundColumnRow {
+  scheme_code: number; name: string; amc: string; category: string; asset_class: string; class_rule_id: string;
+  sub_category: string; structure: string; plan: string; option: string; management: string | null;
+  fund_group: string | null; risk_band: string | null; philosophy: string | null; speciality: string;
+  lifecycle: string | null; class_status: string | null; header_raw: string | null; nav: number; nav_date: number;
+}
+export interface NormalizedFundMetricRow {
+  scheme_code: number; metric_id: string; metric_value: number | null; reason_code: string | null;
+}
+
 function fieldValue(fund: Fund, field: Field): string {
   const value = fund[field];
   return field === 'speciality' ? (Array.isArray(value) ? value.join('\u001f') : '') : typeof value === 'string' ? value : '';
@@ -41,6 +51,58 @@ export function encodeFundColumns(funds: Fund[]): Uint8Array {
   for (const metric of metrics) for (const fund of funds) { const raw = fund.metrics?.[metric]; view.setFloat32(offset, typeof raw === 'number' && Number.isFinite(raw) ? raw : Number.NaN, true); offset += 4; }
   for (const metric of metrics) for (const fund of funds) { output[offset++] = reasonToId.get(String(fund.metricReasons?.[metric] ?? '') as typeof reasonCodes[number]) ?? 0; }
   if (offset !== output.length) throw new Error('Columnar index length calculation failed.');
+  return output;
+}
+
+/** Encodes desktop SQLite rows directly into the existing worker index format. */
+export function encodeNormalizedFundColumns(rows: NormalizedFundColumnRow[], metricRows: NormalizedFundMetricRow[]): Uint8Array {
+  const fieldKeys: Record<Field, keyof NormalizedFundColumnRow> = {
+    name: 'name', amc: 'amc', category: 'category', assetClass: 'asset_class', classRuleId: 'class_rule_id',
+    subCategory: 'sub_category', structure: 'structure', plan: 'plan', option: 'option', management: 'management',
+    group: 'fund_group', riskBand: 'risk_band', philosophy: 'philosophy', speciality: 'speciality', lifecycle: 'lifecycle',
+    classStatus: 'class_status', headerRaw: 'header_raw',
+  };
+  const dictionaries = {} as Record<Field, string[]>;
+  const idMaps = {} as Record<Field, Map<string, number>>;
+  for (const field of fields) {
+    const key = fieldKeys[field];
+    const values = [...new Set(rows.map(row => typeof row[key] === 'string' ? row[key] as string : ''))];
+    dictionaries[field] = values;
+    idMaps[field] = new Map(values.map((value, index) => [value, index]));
+  }
+  const metrics = [...new Set(metricRows.map(row => row.metric_id))].sort();
+  const metricByFund = new Map<number, Map<string, NormalizedFundMetricRow>>();
+  for (const row of metricRows) {
+    const fundMetrics = metricByFund.get(row.scheme_code) ?? new Map<string, NormalizedFundMetricRow>();
+    fundMetrics.set(row.metric_id, row);
+    metricByFund.set(row.scheme_code, fundMetrics);
+  }
+  const header: Header = { format: 'fundscope-columnar-v1', count: rows.length, fields: [...fields], dictionaries, metrics, reasonCodes: [...reasonCodes] };
+  const headerBytes = encoder.encode(JSON.stringify(header));
+  const prefixBytes = (4 + headerBytes.length + 3) & ~3;
+  const output = new Uint8Array(prefixBytes + rows.length * (4 + 8 + 4 + fields.length * 2 + metrics.length * 5));
+  const view = new DataView(output.buffer);
+  view.setUint32(0, headerBytes.length, true); output.set(headerBytes, 4);
+  let offset = prefixBytes;
+  for (const row of rows) { view.setInt32(offset, row.scheme_code, true); offset += 4; }
+  for (const row of rows) { view.setFloat64(offset, row.nav, true); offset += 8; }
+  for (const row of rows) { view.setInt32(offset, row.nav_date, true); offset += 4; }
+  for (const field of fields) {
+    const key = fieldKeys[field];
+    for (const row of rows) {
+      const raw = row[key]; const value = typeof raw === 'string' ? raw : '';
+      view.setUint16(offset, idMaps[field].get(value) ?? 0, true); offset += 2;
+    }
+  }
+  for (const metric of metrics) for (const row of rows) {
+    const value = metricByFund.get(row.scheme_code)?.get(metric)?.metric_value;
+    view.setFloat32(offset, typeof value === 'number' && Number.isFinite(value) ? value : Number.NaN, true); offset += 4;
+  }
+  for (const metric of metrics) for (const row of rows) {
+    const reason = metricByFund.get(row.scheme_code)?.get(metric)?.reason_code ?? '';
+    output[offset++] = reasonToId.get(reason as typeof reasonCodes[number]) ?? 0;
+  }
+  if (offset !== output.length) throw new Error('Normalized columnar index length calculation failed.');
   return output;
 }
 

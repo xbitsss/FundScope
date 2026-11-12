@@ -49,7 +49,7 @@ export class ScreenerEngineClient {
     }
   }
 
-  load(funds: Fund[]): Promise<{ size: number; categoryTree: EngineCategoryTree[] }> {
+  load(funds: Fund[], indexBuffer?: ArrayBuffer): Promise<{ size: number; categoryTree: EngineCategoryTree[] }> {
     if (funds === this.fundsRef) return this.loadPromise;
     if (this.fundsRef && sameScreenerIndexData(this.fundsRef, funds)) { this.fundsRef = funds; return this.loadPromise; }
     this.fundsRef = funds;
@@ -69,8 +69,9 @@ export class ScreenerEngineClient {
         resolve({ size: reply.size, categoryTree: reply.categoryTree });
       }, reject });
       const started = performance.now();
-      this.worker!.postMessage({ kind: 'load', id, funds });
-      recordPerfMeasurement('fund transfer to screener worker', performance.now() - started, `${funds.length.toLocaleString('en-IN')} funds · synchronous postMessage time`);
+      if(indexBuffer)this.worker!.postMessage({ kind: 'load', id, indexBuffer }, [indexBuffer]);
+      else this.worker!.postMessage({ kind: 'load', id, funds });
+      recordPerfMeasurement('fund transfer to screener worker', performance.now() - started, `${funds.length.toLocaleString('en-IN')} funds · ${indexBuffer?'transferred columnar buffer':'structured-clone postMessage'} time`);
     });
     return this.loadPromise;
   }

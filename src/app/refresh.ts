@@ -49,7 +49,7 @@ export async function refreshCatalog(riskWindow=3,riskFreeRate=6.5,onStage?:(sta
         fund.metrics={...prior.metrics};fund.metricReasons={...prior.metricReasons};fund.metricReasonDetails={...prior.metricReasonDetails};fund.metricFlags={...prior.metricFlags};fund.metricProvenance={...prior.metricProvenance};fund.metricAsOf={...prior.metricAsOf};
       }else fund.metrics={};
     }
-    await saveFunds(funds,(saved,total)=>onStage?.(`Saving scheme data… ${saved.toLocaleString('en-IN')} / ${total.toLocaleString('en-IN')}`));
+    await saveFunds(funds,(saved,total)=>onStage?.(`Saving scheme data… ${saved.toLocaleString('en-IN')} / ${total.toLocaleString('en-IN')}`),{skipTaxonomyObservation:true});
     const asOf=Math.max(...funds.map(f=>f.navDate));
     await setSourceStatus({fetchedAt:Date.now(),dataAsOf:asOf*86400000,status:'ok',detail:`${funds.length.toLocaleString('en-IN')} schemes loaded from AMFI. ${joinDetail}`});
     onStage?.('Catalog ready.');
