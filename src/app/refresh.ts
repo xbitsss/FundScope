@@ -7,6 +7,7 @@ import { TAXONOMY_VERSION } from '../domain/taxonomy/assetClass';
 import { previousConflictFrom, reconcileClassification } from '../domain/taxonomy/consensus';
 import type { Fund, NavPoint } from '../domain/types';
 import { getFunds, reconcileFundTaxonomy, saveAmfiSchemeMasterRows, saveFunds, saveSchemeMasterRows, setSourceStatus } from './persistence';
+import { AbortableRequestPool, historyLruCache } from './historyCache';
 
 const apiNavSchema=z.object({meta:z.object({fund_house:z.string().optional(),scheme_type:z.string().optional(),scheme_category:z.string().optional(),scheme_code:z.number(),scheme_name:z.string()}).passthrough(),data:z.array(z.object({date:z.string(),nav:z.string()})),status:z.string()});
 const monthMap:Record<string,number>={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
@@ -61,33 +62,44 @@ export async function refreshCatalog(riskWindow=3,riskFreeRate=6.5,onStage?:(sta
   }
 }
 export interface LoadedSchemeHistory { history: NavPoint[]; schemeCategory: string | null; schemeName: string; fetchedAt: number }
+const mfapiHistoryRequests = new AbortableRequestPool<number, LoadedSchemeHistory>();
+function delayWithSignal(milliseconds:number,signal:AbortSignal):Promise<void>{
+  if(signal.aborted)return Promise.reject(new DOMException('The request was cancelled.','AbortError'));
+  return new Promise((resolve,reject)=>{const timer=window.setTimeout(()=>{signal.removeEventListener('abort',onAbort);resolve();},milliseconds);const onAbort=()=>{window.clearTimeout(timer);signal.removeEventListener('abort',onAbort);reject(new DOMException('The request was cancelled.','AbortError'));};signal.addEventListener('abort',onAbort,{once:true});});
+}
 export async function loadSchemeHistoryWithMetadata(code:number, signal?:AbortSignal):Promise<LoadedSchemeHistory>{
+  const cached=historyLruCache.get(code);
+  if(cached)return {history:cached.history,schemeCategory:cached.schemeCategory??null,schemeName:cached.schemeName??'',fetchedAt:cached.loadedAt};
+  return mfapiHistoryRequests.load(code,async sharedSignal=>{
   let lastError:unknown;
   for(let attempt=0;attempt<4;attempt++){
     try{
-      const response=await fetchWithTimeout(`https://api.mfapi.in/mf/${code}`,{signal},12_000);
-      if(response.status===429||response.status>=500){if(attempt===3)throw new Error(`MFapi returned HTTP ${response.status}`);const header=response.headers.get('retry-after');const retryMs=header&&Number.isFinite(Number(header))?Math.max(500,Number(header)*1000):500*2**attempt;await new Promise(resolve=>setTimeout(resolve,retryMs));continue;}
+      const response=await fetchWithTimeout(`https://api.mfapi.in/mf/${code}`,{signal:sharedSignal},12_000);
+      if(response.status===429||response.status>=500){if(attempt===3)throw new Error(`MFapi returned HTTP ${response.status}`);const header=response.headers.get('retry-after');const retryMs=header&&Number.isFinite(Number(header))?Math.max(500,Number(header)*1000):500*2**attempt;await delayWithSignal(retryMs,sharedSignal);continue;}
       if(!response.ok)throw new Error(`MFapi returned HTTP ${response.status}`);
       const payload=apiNavSchema.parse(await response.json());if(payload.status!=='SUCCESS')throw new Error(`MFapi status: ${payload.status}`);
       const history=payload.data.flatMap(item=>{const date=parseMfapiDate(item.date);const nav=Number(item.nav);return date!==null&&Number.isFinite(nav)&&nav>0?[{date,nav}]:[];}).reverse();
       if(!history.length)throw new Error('MFapi returned an empty history.');
-      return {history,schemeCategory:payload.meta.scheme_category??null,schemeName:payload.meta.scheme_name,fetchedAt:Date.now()};
-    }catch(error){lastError=error;if(signal?.aborted||attempt===3)throw error;const message=error instanceof Error?error.message:'';if(/timed out/i.test(message)||(/HTTP 4\d\d/.test(message)&&!message.includes('HTTP 429')))throw error;await new Promise(resolve=>setTimeout(resolve,500*2**attempt));}
+      const result={history,schemeCategory:payload.meta.scheme_category??null,schemeName:payload.meta.scheme_name,fetchedAt:Date.now()};
+      historyLruCache.set(code,{history:result.history,loadedAt:result.fetchedAt,snapshotId:'',schemeCategory:result.schemeCategory,schemeName:result.schemeName});
+      return result;
+    }catch(error){lastError=error;if(sharedSignal.aborted||attempt===3)throw error;const message=error instanceof Error?error.message:'';if(/timed out/i.test(message)||(/HTTP 4\d\d/.test(message)&&!message.includes('HTTP 429')))throw error;await delayWithSignal(500*2**attempt,sharedSignal);}
   }
   throw lastError instanceof Error?lastError:new Error('Unable to load MFapi history.');
+  },signal);
 }
 export async function loadSchemeHistory(code:number,signal?:AbortSignal):Promise<NavPoint[]>{return (await loadSchemeHistoryWithMetadata(code,signal)).history;}
-export async function backfillSelectedHistory(funds:Fund[],codes:number[],onProgress:(done:number,total:number)=>void):Promise<{updated:Fund[],loaded:number,failed:number,failedCodes:Array<{code:number;reason:string}>}>{
+export async function backfillSelectedHistory(funds:Fund[],codes:number[],onProgress:(done:number,total:number)=>void,signal?:AbortSignal):Promise<{updated:Fund[],loaded:number,failed:number,failedCodes:Array<{code:number;reason:string}>}>{
   let next=0,done=0,loaded=0;const byCode=new Map(funds.map(fund=>[fund.code,fund]));const updated:Fund[]=[];const failedCodes:Array<{code:number;reason:string}>=[];
   const worker=async()=>{
     while(true){
-      const index=next++;if(index>=codes.length)return;
+      if(signal?.aborted)return;const index=next++;if(index>=codes.length)return;
       const code=codes[index]!;
-      try{const result=await loadSchemeHistoryWithMetadata(code);const fund=byCode.get(code);if(!fund)throw new Error('Scheme is not in the local catalog.');fund.history=result.history;fund.historyFetchedAt=result.fetchedAt;
+      try{const result=await loadSchemeHistoryWithMetadata(code,signal);if(signal?.aborted)return;const fund=byCode.get(code);if(!fund)throw new Error('Scheme is not in the local catalog.');fund.history=result.history;fund.historyFetchedAt=result.fetchedAt;
         if(result.schemeCategory){const s1ObservedAt=fund.classDetail?.s1.observedAt??fund.navDate*86_400_000;const consensus=reconcileClassification({...(fund.schemeMaster?.categoryRaw?{s0:{categoryRaw:fund.schemeMaster.categoryRaw,observedAt:s1ObservedAt,schemeMaster:{categoryRaw:fund.schemeMaster.categoryRaw,closureDate:fund.schemeMaster.closureDate}}}:{}),s1:{categoryRaw:fund.category,headerRaw:fund.headerRaw,observedAt:s1ObservedAt,structure:fund.structure,navDate:fund.navDate,newestNavDate:fund.navDate},s2:{categoryRaw:result.schemeCategory,observedAt:result.fetchedAt},s3:fund.classDetail?.s3?{categoryRaw:fund.classDetail.s3.categoryRaw,observedAt:fund.classDetail.s3.observedAt}:undefined,s4:fund.classDetail?.s4?{categoryRaw:fund.classDetail.s4.categoryRaw,observedAt:fund.classDetail.s4.observedAt}:undefined,schemeName:fund.name,evaluatedAt:result.fetchedAt,previousConflict:previousConflictFrom(fund.classDetail,fund.classStatus),previousReview:fund.classDetail?.review});Object.assign(fund,consensus,{taxonomyVersion:TAXONOMY_VERSION,classificationReason:consensus.reason,classificationProvenance:consensus.provenance});}
-        updated.push(fund);loaded++;}catch(error){failedCodes.push({code,reason:error instanceof Error?error.message:'NAV history could not be loaded.'});}
+        updated.push(fund);loaded++;}catch(error){if(!signal?.aborted)failedCodes.push({code,reason:error instanceof Error?error.message:'NAV history could not be loaded.'});}
       done++;onProgress(done,codes.length);
-      if(next<codes.length)await new Promise(resolve=>setTimeout(resolve,120));
+      if(next<codes.length&&!signal?.aborted)await delayWithSignal(120,signal??new AbortController().signal).catch(()=>undefined);
     }
   };
   await Promise.all(Array.from({length:Math.min(3,codes.length)},worker));

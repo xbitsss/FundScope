@@ -4,6 +4,7 @@ import { computePeerMetricsInWorker } from '../domain/metrics/peerMetricsClient'
 import { backfillSelectedHistory } from './refresh';
 import { getNavHistory, saveFunds, saveNavHistory } from './persistence';
 import { getUnlockedSnapshotManifest, loadSnapshotHistories } from '../adapters/snapshot/browserReader';
+import { historyLruCache } from './historyCache';
 
 export type HistoryLoadFailure = { code: number; reason: string };
 export type HistoryLoadProgress = (done: number, total: number) => void;
@@ -13,7 +14,7 @@ export type HistoryLoadOutcome = { funds: Fund[]; loadedCodes: number[]; failedC
 export async function loadSelectedHistories(
   requestedCodes: number[],
   sourceFunds: Fund[],
-  options: { hostedWeb: boolean; riskWindow: 1 | 3 | 5; riskFreeRate: number; onProgress?: HistoryLoadProgress },
+  options: { hostedWeb: boolean; riskWindow: 1 | 3 | 5; riskFreeRate: number; onProgress?: HistoryLoadProgress; signal?: AbortSignal },
 ): Promise<HistoryLoadOutcome> {
   const fundsByCode = new Map(sourceFunds.map(fund => [fund.code, fund]));
   const codes = [...new Set(requestedCodes)].filter(code => fundsByCode.has(code));
@@ -26,34 +27,39 @@ export async function loadSelectedHistories(
   let done = 0;
   options.onProgress?.(done, codes.length);
 
-  if (options.hostedWeb) {
-    const local = await Promise.all(codes.map(async code => {
+  const withCurrentNav = (history:NavPoint[],code:number) => {
+    const points=[...history];const current=fundsByCode.get(code)!;const latest=points.at(-1);
+    if(latest&&current.navDate>=latest.date){if(current.navDate===latest.date)points[points.length-1]={date:current.navDate,nav:current.nav};else points.push({date:current.navDate,nav:current.nav});}
+    return points;
+  };
+  for(const code of codes){
+    const cached=historyLruCache.get(code,{snapshotId});
+    if(cached&&cached.history.length){historyByCode.set(code,{history:withCurrentNav(cached.history,code),historyFetchedAt:cached.loadedAt});done++;}
+  }
+
+  if (options.hostedWeb && !options.signal?.aborted) {
+    const local = await Promise.all(codes.filter(code=>!historyByCode.has(code)).map(async code => {
       try { return { code, saved: await getNavHistory(code) }; }
       catch { return { code, saved: null }; }
     }));
     for (const { code, saved } of local) {
       const cacheIsFresh = saved !== null && Number.isFinite(saved.loadedAt) && Date.now() - saved.loadedAt <= 7 * 86_400_000;
       if (saved && cacheIsFresh && saved.points.length && saved.points.every(point => Number.isInteger(point.date) && Number.isFinite(point.nav) && point.nav > 0)) {
-        const points = [...saved.points];
-        const current = fundsByCode.get(code)!;
-        const latest = points.at(-1);
-        if (latest && current.navDate >= latest.date) {
-          if (current.navDate === latest.date) points[points.length - 1] = { date: current.navDate, nav: current.nav };
-          else points.push({ date: current.navDate, nav: current.nav });
-        }
+        const points = withCurrentNav(saved.points,code);
         historyByCode.set(code, { history: points, historyFetchedAt: saved.loadedAt });
+        historyLruCache.set(code,{history:points,loadedAt:saved.loadedAt,snapshotId});
         done++;
       }
     }
   }
 
   const remaining = codes.filter(code => !historyByCode.has(code));
-  if (options.hostedWeb && remaining.length) {
+  if (options.hostedWeb && remaining.length && !options.signal?.aborted) {
     let snapshotResult: Awaited<ReturnType<typeof loadSnapshotHistories>> | null = null;
     try {
-      snapshotResult = await loadSnapshotHistories(remaining, (count, total) => options.onProgress?.(done + count, codes.length));
+      snapshotResult = await loadSnapshotHistories(remaining, (count, total) => options.onProgress?.(done + count, codes.length),options.signal);
       const loadedAt = Date.now();
-      for (const [code, history] of snapshotResult.loaded) if (history.length) historyByCode.set(code, { history, historyFetchedAt: loadedAt });
+      for (const [code, history] of snapshotResult.loaded) if (history.length) {historyByCode.set(code, { history, historyFetchedAt: loadedAt });historyLruCache.set(code,{history,loadedAt,snapshotId});}
       for (const item of snapshotResult.failed) failures.set(item.code, item.reason);
       for (const code of snapshotResult.unavailable) failures.set(code, 'History is not included in this snapshot.');
     } catch (error) {
@@ -67,10 +73,11 @@ export async function loadSelectedHistories(
       options.onProgress?.(done, progressTotal);
       const candidates = codes.map(code => fundsByCode.get(code)!).filter(fund => fallbackCodes.includes(fund.code)).map(fund => ({ ...fund, history: [...fund.history], metrics: { ...fund.metrics } }));
       try {
-        const fallback = await backfillSelectedHistory(candidates, fallbackCodes, count => options.onProgress?.(done + count, progressTotal));
+        const fallback = await backfillSelectedHistory(candidates, fallbackCodes, count => options.onProgress?.(done + count, progressTotal),options.signal);
         const loadedAt = Date.now();
         for (const fund of fallback.updated) {
           historyByCode.set(fund.code, { history: fund.history, historyFetchedAt: fund.historyFetchedAt ?? loadedAt });
+          historyLruCache.set(fund.code,{history:fund.history,loadedAt:fund.historyFetchedAt??loadedAt,snapshotId});
           failures.delete(fund.code);
         }
         for (const failure of fallback.failedCodes) failures.set(failure.code, failure.reason);
@@ -79,9 +86,9 @@ export async function loadSelectedHistories(
         for (const code of fallbackCodes) if (!historyByCode.has(code)) failures.set(code, message);
       }
     }
-  } else if (!options.hostedWeb) {
+  } else if (!options.hostedWeb && !options.signal?.aborted) {
     const candidates = codes.map(code => fundsByCode.get(code)!).map(fund => ({ ...fund, history: [...fund.history], metrics: { ...fund.metrics } }));
-    const backfill = await backfillSelectedHistory(candidates, codes, (count, total) => options.onProgress?.(count, total));
+    const backfill = await backfillSelectedHistory(candidates, codes, (count, total) => options.onProgress?.(count, total),options.signal);
     const loadedAt = Date.now();
     for (const fund of backfill.updated) historyByCode.set(fund.code, { history: fund.history, historyFetchedAt: fund.historyFetchedAt ?? loadedAt });
     for (const failure of backfill.failedCodes) failures.set(failure.code, failure.reason);
@@ -93,6 +100,8 @@ export async function loadSelectedHistories(
       catch { /* The current session can still use a successfully decoded or fetched history. */ }
     }));
   }
+
+  if(options.signal?.aborted)return {funds:sourceFunds,loadedCodes:[...historyByCode.keys()],failedCodes:[]};
 
   if (!historyByCode.size) {
     options.onProgress?.(codes.length, codes.length);

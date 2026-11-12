@@ -7,15 +7,20 @@ import { decodeFundColumns } from './columnar';
 import { getDeviceSession, saveDeviceSession } from './deviceSession';
 import { readCachedSnapshotIndex, saveCachedSnapshotIndex, type CachedSnapshotIndex } from './localCache';
 import { applySnapshotDelta } from './delta';
+import { AbortableRequestPool } from '../../domain/async/abortableRequestPool';
 
 const CANARY_TEXT = 'FundScope snapshot canary:v1';
 interface UnlockedSnapshot { manifest: SnapshotManifest; key: CryptoKey; baseUrl: string }
 let unlocked: UnlockedSnapshot | null = null;
 let manifestPromise: Promise<{ manifest: SnapshotManifest; baseUrl: string }> | null = null;
 let warmUnlockWorker: Worker | null = null;
-const prefetchedFiles = new Map<string, Promise<Uint8Array>>();
+const fileRequests = new AbortableRequestPool<string, Uint8Array>();
+const encryptedFileCache = new Map<string, { bytes: Uint8Array; sha256: string }>();
+const MAX_ENCRYPTED_FILE_CACHE_BYTES = 8 * 1024 * 1024;
+let encryptedFileCacheBytes = 0;
 const historyCache = new Map<string, Map<number, NavPoint[]>>();
 const detailCache = new Map<string, Map<number, Partial<Fund>>>();
+const SNAPSHOT_RECORD_CACHE_LIMIT = 64;
 let failedUnlocks = 0;
 let blockedUntil = 0;
 let latestUnlockTimings: Record<string, number> = {};
@@ -67,26 +72,37 @@ async function fetchManifest(baseUrl: string): Promise<{ manifest: SnapshotManif
   return { manifest, baseUrl: base };
 }
 
-async function fetchFile(baseUrl: string, ref: SnapshotFileRef): Promise<Uint8Array> {
-  const url = new URL(ref.path, baseUrl).href;
-  let pending = prefetchedFiles.get(url);
-  if (!pending) {
-    pending = (async () => {
-      const response = await fetch(url, { cache: 'force-cache' });
-      if (!response.ok) throw new Error(`Snapshot file could not be loaded (HTTP ${response.status}).`);
-      return new Uint8Array(await response.arrayBuffer());
-    })();
-    prefetchedFiles.set(url, pending);
-  }
-  try {
-    const bytes = await pending;
-    if (bytes.byteLength !== ref.encryptedBytes || await sha256Hex(bytes) !== ref.sha256) throw new Error('Snapshot file integrity check failed.');
-    return bytes;
-  } catch (error) {
-    prefetchedFiles.delete(url);
-    throw error;
-  }
+function rememberEncryptedFile(url:string,ref:SnapshotFileRef,bytes:Uint8Array):void{
+  const previous=encryptedFileCache.get(url);if(previous){encryptedFileCacheBytes-=previous.bytes.byteLength;encryptedFileCache.delete(url);}
+  if(bytes.byteLength>MAX_ENCRYPTED_FILE_CACHE_BYTES)return;
+  encryptedFileCache.set(url,{bytes,sha256:ref.sha256});encryptedFileCacheBytes+=bytes.byteLength;
+  while(encryptedFileCacheBytes>MAX_ENCRYPTED_FILE_CACHE_BYTES){const oldest=encryptedFileCache.keys().next().value as string|undefined;if(!oldest)break;const entry=encryptedFileCache.get(oldest);if(entry)encryptedFileCacheBytes-=entry.bytes.byteLength;encryptedFileCache.delete(oldest);}
 }
+
+async function fetchFile(baseUrl: string, ref: SnapshotFileRef, signal?:AbortSignal): Promise<Uint8Array> {
+  const url = new URL(ref.path, baseUrl).href;
+  const cached=encryptedFileCache.get(url);
+  if(cached&&cached.sha256===ref.sha256&&cached.bytes.byteLength===ref.encryptedBytes){encryptedFileCache.delete(url);encryptedFileCache.set(url,cached);return cached.bytes;}
+  if(cached){encryptedFileCacheBytes-=cached.bytes.byteLength;encryptedFileCache.delete(url);}
+  const bytes=await fileRequests.load(url,async sharedSignal=>{
+    const response=await fetch(url,{cache:'force-cache',signal:sharedSignal});
+    if(!response.ok)throw new Error(`Snapshot file could not be loaded (HTTP ${response.status}).`);
+    const bytes=new Uint8Array(await response.arrayBuffer());
+    if(bytes.byteLength!==ref.encryptedBytes||await sha256Hex(bytes)!==ref.sha256)throw new Error('Snapshot file integrity check failed.');
+    rememberEncryptedFile(url,ref,bytes);
+    return bytes;
+  },signal);
+  if(bytes.byteLength!==ref.encryptedBytes||await sha256Hex(bytes)!==ref.sha256)throw new Error('Snapshot file integrity check failed.');
+  return bytes;
+}
+
+function snapshotRecordCache<Value>(stores:Map<string,Map<number,Value>>,snapshotId:string):Map<number,Value>{
+  let records=stores.get(snapshotId);
+  if(!records){stores.clear();records=new Map<number,Value>();stores.set(snapshotId,records);}
+  return records;
+}
+function getSnapshotRecord<Value>(records:Map<number,Value>,code:number):Value|undefined{const value=records.get(code);if(value!==undefined){records.delete(code);records.set(code,value);}return value;}
+function setSnapshotRecord<Value>(records:Map<number,Value>,code:number,value:Value):void{records.delete(code);records.set(code,value);while(records.size>SNAPSHOT_RECORD_CACHE_LIMIT)records.delete(records.keys().next().value!);}
 
 /** Starts before the user submits the passphrase; cached bytes are reused by unlockSnapshot. */
 export function prefetchSnapshot(baseUrl = import.meta.env.BASE_URL): void {
@@ -307,54 +323,53 @@ export async function restoreSnapshotOnDevice(baseUrl = import.meta.env.BASE_URL
   return { manifest, funds: restored.funds };
 }
 
-export async function loadSnapshotDetails(codes: number[]): Promise<Map<number, Partial<Fund>>> {
+export async function loadSnapshotDetails(codes: number[],signal?:AbortSignal): Promise<Map<number, Partial<Fund>>> {
   if (!unlocked) throw new Error('Unlock the FundScope snapshot before loading fund details.');
   const { manifest, key, baseUrl } = unlocked;
   const snapshotId = manifest.snapshot_id ?? manifest.generated_at;
-  const cache = detailCache.get(snapshotId) ?? new Map<number, Partial<Fund>>(); detailCache.set(snapshotId, cache);
+  const cache = snapshotRecordCache(detailCache,snapshotId);
   const loaded = new Map<number, Partial<Fund>>();
   await Promise.all(codes.map(async (code) => {
-    if (cache.has(code)) { loaded.set(code, cache.get(code)!); return; }
+    const previous=getSnapshotRecord(cache,code);if(previous){loaded.set(code,previous);return;}
     const ref = manifest.details?.[String(code)]; if (!ref) return;
-    const bytes = await fetchFile(baseUrl, ref);
+    try{const bytes = await fetchFile(baseUrl, ref,signal);
     const compressed = await decryptFile(manifest, key, ref.path, bytes);
     const value = JSON.parse(decodeUtf8(await gunzipBytes(compressed))) as Partial<Fund>;
-    cache.set(code, value); loaded.set(code, value);
+    setSnapshotRecord(cache,code,value); loaded.set(code, value);}catch(error){if(!signal?.aborted)throw error;}
   }));
   return loaded;
 }
 
-export async function loadSnapshotHistories(codes: number[], onProgress?: (done: number, total: number) => void): Promise<HistoryLoadResult> {
+export async function loadSnapshotHistories(codes: number[], onProgress?: (done: number, total: number) => void,signal?:AbortSignal): Promise<HistoryLoadResult> {
   if (!unlocked) throw new Error('Unlock the FundScope snapshot before loading fund history.');
   const result = new Map<number, NavPoint[]>();
   const unavailable: number[] = []; const failed: Array<{ code: number; reason: string }> = [];
   const { manifest, key, baseUrl } = unlocked;
   const snapshotId = manifest.snapshot_id ?? manifest.generated_at;
-  const cached = historyCache.get(snapshotId) ?? new Map<number, NavPoint[]>(); historyCache.set(snapshotId, cached);
+  const cached = snapshotRecordCache(historyCache,snapshotId);
   let next = 0; let done = 0;
   const worker = async () => {
     while (true) {
       const index = next++;
-      if (index >= codes.length) return;
+      if (index >= codes.length||signal?.aborted) return;
       const code = codes[index]!;
       const ref = manifest.histories[String(code)];
       if (!ref) unavailable.push(code);
-      else if (cached.has(code)) result.set(code, cached.get(code)!);
-      else {
+      else {const inMemory=getSnapshotRecord(cached,code);if(inMemory)result.set(code,inMemory);else{
         try {
           let error: unknown;
           for (let attempt = 0; attempt < 2; attempt++) {
             try {
-              const encrypted = await fetchFile(baseUrl, ref);
+              const encrypted = await fetchFile(baseUrl, ref,signal);
               const compressed = await decryptFile(manifest, key, ref.path, encrypted);
               const history = JSON.parse(decodeUtf8(await gunzipBytes(compressed))) as unknown;
               if (!Array.isArray(history) || history.length === 0 || history.some((point) => !point || !Number.isInteger(point.date) || !Number.isFinite(point.nav) || point.nav <= 0)) throw new Error(`Snapshot history for scheme ${code} is malformed or empty.`);
-              cached.set(code, history as NavPoint[]); result.set(code, history as NavPoint[]); error = undefined; break;
-            } catch (cause) { error = cause; if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 100)); }
+              setSnapshotRecord(cached,code,history as NavPoint[]); result.set(code, history as NavPoint[]); error = undefined; break;
+            } catch (cause) { error = cause; if (signal?.aborted) break; if (attempt === 0) await new Promise((resolve) => setTimeout(resolve, 100)); }
           }
-          if (error) failed.push({ code, reason: error instanceof Error ? error.message : 'History could not be loaded.' });
-        } catch (cause) { failed.push({ code, reason: cause instanceof Error ? cause.message : 'History could not be loaded.' }); }
-      }
+          if (error&&!signal?.aborted) failed.push({ code, reason: error instanceof Error ? error.message : 'History could not be loaded.' });
+        } catch (cause) { if(!signal?.aborted)failed.push({ code, reason: cause instanceof Error ? cause.message : 'History could not be loaded.' }); }
+      }}
       done++; onProgress?.(done, codes.length);
     }
   };
@@ -365,4 +380,4 @@ export async function loadSnapshotHistories(codes: number[], onProgress?: (done:
 
 export function getUnlockedSnapshotManifest(): SnapshotManifest | null { return unlocked?.manifest ?? null; }
 export function getLastUnlockTimings(): Record<string, number> { return { ...latestUnlockTimings }; }
-export function lockSnapshot(): void { unlocked = null; warmUnlockWorker?.terminate(); warmUnlockWorker = null; }
+export function lockSnapshot(): void { unlocked = null; warmUnlockWorker?.terminate(); warmUnlockWorker = null; fileRequests.clear(); historyCache.clear(); detailCache.clear(); }

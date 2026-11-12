@@ -7,8 +7,9 @@ import { getClassificationDiagnostics, getFundIndexBuffer, getFunds, getLocalSta
 import { refreshCatalog } from '../app/refresh';
 import { loadSelectedHistories } from '../app/historyLoader';
 import { applyLocalDisclosureOverrides, ingestCurrentMonthAmfiTer, ingestLatestAmfiAverageAum } from '../app/disclosures';
-import { DEFAULT_RISK_FREE_RATE_PERCENT, growthSeries, MAX_RISK_FREE_RATE_PERCENT } from '../domain/metrics/compute';
-import { computeFundsInWorker } from '../domain/metrics/workerClient';
+import { DEFAULT_RISK_FREE_RATE_PERCENT, MAX_RISK_FREE_RATE_PERCENT } from '../domain/metrics/compute';
+import { computeFundsInWorker, computeGrowthChartInWorker } from '../domain/metrics/workerClient';
+import { nearestGrowthPoint, type GrowthChartModel } from '../domain/metrics/growthChart';
 import { computePeerMetricsInWorker } from '../domain/metrics/peerMetricsClient';
 import { FundBenchmarkSection } from './FundBenchmarkSection';
 import { reasonMessage } from '../domain/governance/reasonMessages';
@@ -18,6 +19,10 @@ import { classificationMessages, rerunClassification, summarizeClassification } 
 import { parseClassificationAuditCsv, renderClassificationAuditSample } from '../domain/taxonomy/auditCsv';
 import { groupUnclassifiedByReason } from '../domain/taxonomy/reviewQueue';
 import { getUnlockedSnapshotManifest, loadSnapshotDetails, loadSnapshotHistories } from '../adapters/snapshot/browserReader';
+
+const historyArrayIds=new WeakMap<NavPoint[],number>();
+let nextHistoryArrayId=0;
+function historyArrayId(history:NavPoint[]):number{let id=historyArrayIds.get(history);if(id===undefined){id=++nextHistoryArrayId;historyArrayIds.set(history,id);}return id;}
 import { normalizeFilterText } from '../domain/search/normalize';
 import { finishPerfMeasurement, getPerfMeasurements, isPerfEnabled, startPerfMeasurement, subscribePerfMeasurements } from '../app/perf';
 import { activeFacetCount, collapseFacetSelection, computeScreenerView, defaultScreenerFilters, isFacetOptionSelected, type ArrayFacet, type ScreenerFilters } from '../domain/screener/filters';
@@ -58,7 +63,7 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
   const [route,setRoute]=useState<Route>('screener'); const [funds,setFunds]=useState<Fund[]>(()=>initialFunds??[]); const [isLoading,setIsLoading]=useState(()=>initialFunds===undefined);
   const [refreshing,setRefreshing]=useState(false); const [refreshStage,setRefreshStage]=useState(''); const [refreshError,setRefreshError]=useState(''); const [historyError,setHistoryError]=useState(''); const [status,setStatus]=useState<SourceState>(()=>initialSource??{fetchedAt:null,dataAsOf:null,status:'never',detail:null}); const [dbError,setDbError]=useState<string | null>(null);
   const refreshLock=useRef(false);
-  const historyLock=useRef(false);const pauseHistoryRef=useRef(false);const autoAttemptedHistory=useRef<Set<number>>(new Set());const [historyRunning,setHistoryRunning]=useState(false);const [historyPaused,setHistoryPaused]=useState(false);const [unavailableCodes,setUnavailableCodes]=useState<Set<number>>(()=>new Set());
+  const historyLock=useRef(false);const pauseHistoryRef=useRef(false);const autoAttemptedHistory=useRef<Set<number>>(new Set());const [historyRunning,setHistoryRunning]=useState(false);const [historyPaused,setHistoryPaused]=useState(false);const [historyPrefetchVersion,setHistoryPrefetchVersion]=useState(0);const [unavailableCodes,setUnavailableCodes]=useState<Set<number>>(()=>new Set());
   const searchInput=useRef<HTMLInputElement>(null);
   const filterPanelRef=useRef<HTMLElement>(null);const filterToggleRef=useRef<HTMLButtonElement>(null);
   const screenOptionsRef=useRef<HTMLDivElement>(null);
@@ -100,20 +105,22 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
   const recomputeAll=(windowYears:number,rate:number)=>{void (async()=>{const updated=(await computeFundsInWorker(funds.filter(fund=>fund.history.length>0),windowYears,rate,{fetchBenchmarkSeries:!hostedWeb})).map(fund=>({...fund,metricsNavAsOf:fund.history.at(-1)?.date}));const computedByCode=new Map(updated.map(fund=>[fund.code,fund]));const merged=funds.map(fund=>computedByCode.get(fund.code)??fund);const peers=await computePeerMetricsInWorker(merged);setFunds(peers);const saveStarted=startPerfMeasurement();await saveFundMetrics(peers);finishPerfMeasurement('saveFunds after recomputeAll',saveStarted,`${peers.length.toLocaleString('en-IN')} metric rows`);})();};
   const setRiskWindow=(value:number)=>{const next=value as 1|3|5;setRiskWindowRaw(next);localStorage.setItem('fundscope-risk-window',String(next));recomputeAll(next,riskFree);};
   const setRiskFree=(value:number)=>{const next=Number.isFinite(value)?Math.min(MAX_RISK_FREE_RATE_PERCENT,Math.max(0,value)):DEFAULT_RISK_FREE_RATE_PERCENT;setRiskFreeRaw(next);localStorage.setItem('fundscope-risk-free',String(next));recomputeAll(riskWindow,next);};
-  const loadHistory=async(codes:number[],sourceFunds=funds)=>{
+  const loadHistory=async(codes:number[],sourceFunds=funds,signal?:AbortSignal)=>{
     const requested=[...new Set(codes)];
     if(!requested.length||historyLock.current)return;
     historyLock.current=true;pauseHistoryRef.current=false;setHistoryPaused(false);setHistoryRunning(true);setHistoryError('');setFetchedPct({done:0,total:requested.length});
     try{
-      const result=await loadSelectedHistories(requested,sourceFunds,{hostedWeb,riskWindow,riskFreeRate:riskFree,onProgress:(done,total)=>setFetchedPct({done,total})});
+      const result=await loadSelectedHistories(requested,sourceFunds,{hostedWeb,riskWindow,riskFreeRate:riskFree,onProgress:(done,total)=>setFetchedPct({done,total}),signal});
+      if(signal?.aborted)return;
       const loaded=new Set(result.loadedCodes);const failed=new Map(result.failedCodes.map(item=>[item.code,item.reason]));
       const fundsByCode=new Map(result.funds.map(fund=>[fund.code,fund]));
       setFunds(current=>current.map(fund=>fundsByCode.get(fund.code)??fund));
       setUnavailableCodes(current=>{const next=new Set(current);for(const code of loaded)next.delete(code);for(const code of failed.keys())next.add(code);return next;});
       if(failed.size){const firstReason=failed.values().next().value as string|undefined;setHistoryError(`${failed.size.toLocaleString('en-IN')} NAV ${failed.size===1?'history could not':'histories could not'} be loaded${firstReason?`: ${firstReason}`:'.'} You can retry the failed schemes.`);}
     }catch(error){
+      if(signal?.aborted)return;
       const message=errorText(error);setHistoryError(`NAV history load failed: ${message}`);setUnavailableCodes(current=>new Set([...current,...requested]));
-    }finally{historyLock.current=false;pauseHistoryRef.current=false;setHistoryPaused(false);setHistoryRunning(false);}
+    }finally{historyLock.current=false;pauseHistoryRef.current=false;setHistoryPaused(false);setHistoryRunning(false);setHistoryPrefetchVersion(value=>value+1);}
   };
   useEffect(()=>{if(initialFunds!==undefined)return;let alive=true;(async()=>{try{await initializeRepository();const [cached,source,savedModel]=await Promise.all([getFunds(),sourceStatus(),getLocalState<SavedScoreModel|null>('score-model',null)]);if(!alive)return;setFunds(cached);setStatus(source);if(savedModel?.factors?.length){setModelName(savedModel.name);setFactors(savedModel.factors);}setIsLoading(false);setDbError(null);if(!hostedWeb){void refresh();void waitForNormalizedStorage().then(async ready=>{if(!alive||!ready||refreshLock.current)return;const latest=await getFunds();if(alive&&!refreshLock.current)setFunds(latest);});}}catch(e){if(alive){console.error('App initialization failed:',e);setIsLoading(false);setDbError(errorText(e));setRefreshError(errorText(e));}}})();return()=>{alive=false;};},[initialFunds]);
   useEffect(()=>{if(initialFunds===undefined)return;let alive=true;const timer=window.setTimeout(()=>{void getLocalState<SavedScoreModel|null>('score-model',null).then(saved=>{if(alive&&saved?.factors?.length){setModelName(saved.name);setFactors(saved.factors);}}).catch(()=>undefined);},750);return()=>{alive=false;window.clearTimeout(timer);};},[initialFunds]);
@@ -228,7 +235,7 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
   const requestBackfill=async(batchSize=100)=>{const todo:number[]=[];for(const index of matchIndices){const fund=funds[index];if(fund&&historyNeeds(fund))todo.push(fund.code);if(todo.length>=batchSize)break;}await loadHistory(todo,funds);};
   const retryHistory=(codes:number[])=>{const retry=[...new Set(codes)];if(!retry.length||historyRunning)return;for(const code of retry)autoAttemptedHistory.current.delete(code);setUnavailableCodes(current=>{const next=new Set(current);for(const code of retry)next.delete(code);return next;});setHistoryError('');void loadHistory(retry,funds);};
   useEffect(()=>{
-    if(isLoading||!engineReady||historyRunning||!funds.length)return;
+    if(isLoading||!engineReady||historyLock.current||!funds.length)return;
     let candidates:Fund[]=[];
     if(detail)candidates=[funds.find(fund=>fund.code===detail.code)??detail];
     else if(route==='compare')candidates=funds.filter(fund=>selected.includes(fund.code));
@@ -237,9 +244,11 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
     const todo=candidates.filter(fund=>needsHistory(fund)&&!unavailableCodes.has(fund.code)&&!autoAttemptedHistory.current.has(fund.code)).map(fund=>fund.code);
     if(!todo.length)return;
     todo.forEach(code=>autoAttemptedHistory.current.add(code));
-    void loadHistory(todo, funds);
-  },[isLoading,engineReady,historyRunning,funds,route,selected,rowItems,scopedFunds,detail?.code,unavailableCodes]);
-  useEffect(()=>{if(!detail)return;if(hostedWeb){if(loadedSnapshotDetails.current.has(detail.code))return;loadedSnapshotDetails.current.add(detail.code);void loadSnapshotDetails([detail.code]).then(details=>{const extra=details.get(detail!.code);if(!extra)return;setFunds(current=>current.map(fund=>fund.code===detail!.code?{...fund,...extra}:fund));setDetail(current=>current?.code===detail!.code?{...current,...extra}:current);}).catch(error=>setRefreshError(errorText(error)));return;}let alive=true;void loadFundDetails(detail.code).then(extra=>{if(!alive)return;setFunds(current=>current.map(fund=>fund.code===detail!.code?{...fund,...extra}:fund));setDetail(current=>current?.code===detail!.code?{...current,...extra}:current);}).catch(error=>setRefreshError(errorText(error)));return()=>{alive=false;};},[detail?.code,hostedWeb]);
+    const controller=new AbortController();
+    void loadHistory(todo, funds,controller.signal);
+    return()=>{controller.abort();todo.forEach(code=>autoAttemptedHistory.current.delete(code));};
+  },[isLoading,engineReady,funds,route,selected,rowItems,scopedFunds,detail?.code,unavailableCodes,historyPrefetchVersion]);
+  useEffect(()=>{if(!detail)return;if(hostedWeb){if(loadedSnapshotDetails.current.has(detail.code))return;loadedSnapshotDetails.current.add(detail.code);const controller=new AbortController();void loadSnapshotDetails([detail.code],controller.signal).then(details=>{if(controller.signal.aborted)return;const extra=details.get(detail!.code);if(!extra)return;setFunds(current=>current.map(fund=>fund.code===detail!.code?{...fund,...extra}:fund));setDetail(current=>current?.code===detail!.code?{...current,...extra}:current);}).catch(error=>{if(!controller.signal.aborted)setRefreshError(errorText(error));});return()=>{controller.abort();loadedSnapshotDetails.current.delete(detail.code);};}let alive=true;void loadFundDetails(detail.code).then(extra=>{if(!alive)return;setFunds(current=>current.map(fund=>fund.code===detail!.code?{...fund,...extra}:fund));setDetail(current=>current?.code===detail!.code?{...current,...extra}:current);}).catch(error=>setRefreshError(errorText(error)));return()=>{alive=false;};},[detail?.code,hostedWeb]);
   const toggleHistoryPause=()=>{if(!historyRunning)return;const next=!historyPaused;pauseHistoryRef.current=next;setHistoryPaused(next);};
   const nav=(r:Route)=>{setRoute(r);setDetail(null);setMobileNavOpen(false);};
   useEffect(()=>{if(!mobileNavOpen)return;const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape')setMobileNavOpen(false);};window.addEventListener('keydown',onKeyDown);return()=>window.removeEventListener('keydown',onKeyDown);},[mobileNavOpen]);
@@ -421,35 +430,34 @@ function CompareView({funds,allFunds,screenerCount,engine,scatterPreferences,onS
     </></div>
 }
 function GrowthChart({funds,loading=false}:{funds:Fund[],loading?:boolean}){
-  const series=funds.map(fund=>growthSeries(fund.history,365*5));
-  const all=series.flat();
   const [selectedDay,setSelectedDay]=useState<number|null>(null);
+  const [model,setModel]=useState<GrowthChartModel|null>(null);
+  const [chartError,setChartError]=useState('');
   const chartRef=useRef<SVGSVGElement>(null);
   const dragging=useRef(false);
-  if(!all.length)return <div className="chart-empty"><Activity size={22}/><span>{loading?'Loading NAV history for this chart…':'NAV history is not available yet. Retry the history load to draw this chart.'}</span></div>;
+  const inputKey=funds.map(fund=>{const first=fund.history[0];const last=fund.history.at(-1);return `${fund.code}:${historyArrayId(fund.history)}:${fund.history.length}:${first?.date??0}:${first?.nav??0}:${last?.date??0}:${last?.nav??0}`;}).join('|');
+  const chartFunds=useMemo(()=>funds.map(fund=>({code:fund.code,history:fund.history})),[inputKey]);
+  useEffect(()=>{
+    const controller=new AbortController();
+    setChartError('');
+    void computeGrowthChartInWorker(chartFunds,365*5,controller.signal).then(setModel).catch(error=>{
+      if(!controller.signal.aborted)setChartError(error instanceof Error?error.message:'Chart calculation failed.');
+    });
+    return()=>controller.abort();
+  },[chartFunds]);
+  useEffect(()=>{setSelectedDay(null);},[inputKey]);
+  if(!model)return <div className="chart-empty" role="status"><Activity size={22}/><span>{chartError?`Chart unavailable: ${chartError}`:loading?'Loading NAV history for this chart…':'Preparing chart in the background…'}</span></div>;
+  if(!model.chartDays.length)return <div className="chart-empty"><Activity size={22}/><span>{loading?'Loading NAV history for this chart…':'NAV history is not available yet. Retry the history load to draw this chart.'}</span></div>;
 
-  const chartDays=Array.from(new Set(all.map(point=>point.date))).sort((a,b)=>a-b);
-  const startDay=chartDays[0]!;
-  const endDay=chartDays[chartDays.length-1]!;
-  const min=all.reduce((value,point)=>Math.min(value,point.nav),Infinity);
-  const max=all.reduce((value,point)=>Math.max(value,point.nav),-Infinity);
-  const navRange=Math.max(max-min,1);
+  const {series,chartDays,startDay,endDay,min,max}=model;
   const xForDay=(day:number)=>36+(day-startDay)/Math.max(endDay-startDay,1)*528;
-  const yForNav=(nav:number)=>166-(nav-min)/navRange*138;
+  const yForNav=(nav:number)=>166-(nav-min)/Math.max(max-min,1)*138;
   const nearestIndex=(day:number)=>{
     let low=0,high=chartDays.length;
     while(low<high){const middle=(low+high)>>1;if(chartDays[middle]!<day)low=middle+1;else high=middle;}
     if(low===0)return 0;
     if(low>=chartDays.length)return chartDays.length-1;
     return day-chartDays[low-1]!<=chartDays[low]!-day?low-1:low;
-  };
-  const nearestPoint=(points:NavPoint[],day:number)=>{
-    if(!points.length)return null;
-    let low=0,high=points.length;
-    while(low<high){const middle=(low+high)>>1;if(points[middle]!.date<day)low=middle+1;else high=middle;}
-    if(low===0)return points[0]!;
-    if(low>=points.length)return points[points.length-1]!;
-    return day-points[low-1]!.date<=points[low]!.date-day?points[low-1]!:points[low]!;
   };
   const updateFromPointer=(clientX:number)=>{
     const bounds=chartRef.current?.getBoundingClientRect();
@@ -474,14 +482,14 @@ function GrowthChart({funds,loading=false}:{funds:Fund[],loading?:boolean}){
     return {year,day:Math.max(startDay,januaryFirst)};
   }).filter(marker=>marker.day<=endDay);
   const activeDay=selectedDay===null?null:chartDays[nearestIndex(selectedDay)]!;
-  const activePoints=activeDay===null?[]:series.map((points,index)=>({fund:funds[index]!,point:nearestPoint(points,activeDay),color:colorPalette[index%colorPalette.length]})).filter((item):item is {fund:Fund;point:NavPoint;color:string}=>item.point!==null);
+  const activePoints=activeDay===null?[]:series.map((points,index)=>({fund:funds[index]!,point:nearestGrowthPoint(points,activeDay),color:colorPalette[index%colorPalette.length]})).filter((item):item is {fund:Fund;point:NavPoint;color:string}=>item.point!==null);
   const activeX=activeDay===null?null:xForDay(activeDay);
 
   return <div className="growth-chart-wrap">
     <svg ref={chartRef} className="line-chart interactive-line-chart" viewBox="0 0 600 210" role="slider" tabIndex={0} aria-label="Growth of ten thousand over time. Tap or drag to inspect values by date." aria-valuemin={startDay} aria-valuemax={endDay} aria-valuenow={activeDay??endDay} aria-valuetext={activeDay===null?'No date selected':dateText(activeDay)} onKeyDown={selectFromKeyboard} onPointerDown={event=>{dragging.current=true;event.currentTarget.setPointerCapture(event.pointerId);updateFromPointer(event.clientX);}} onPointerMove={event=>{if(dragging.current)updateFromPointer(event.clientX);}} onPointerUp={event=>{dragging.current=false;if(event.currentTarget.hasPointerCapture(event.pointerId))event.currentTarget.releasePointerCapture(event.pointerId);}} onPointerCancel={()=>{dragging.current=false;}}>
       <path d="M36 28H564M36 97H564M36 166H564" className="chart-grid"/>
       {yearMarkers.map(marker=>{const x=xForDay(marker.day);return <g key={marker.year}><line x1={x} x2={x} y1="28" y2="166" className="chart-year-marker"/><text x={x} y="194" textAnchor={marker.day===startDay?'start':marker.day===endDay?'end':'middle'} className="chart-year-label">{marker.year}</text></g>;})}
-      {series.map((data,index)=>{const path=data.map((point,pointIndex)=>(pointIndex?'L':'M')+' '+xForDay(point.date).toFixed(2)+' '+yForNav(point.nav).toFixed(2)).join(' ');return path?<path key={funds[index]?.code??index} d={path} fill="none" stroke={colorPalette[index%colorPalette.length]} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>:null;})}
+      {series.map((data,index)=>data.path?<path key={funds[index]?.code??index} d={data.path} fill="none" stroke={colorPalette[index%colorPalette.length]} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>:null)}
       {activeX!==null&&<><line x1={activeX} x2={activeX} y1="24" y2="168" className="chart-active-marker"/>{activePoints.map(item=><circle key={item.fund.code} cx={xForDay(item.point.date)} cy={yForNav(item.point.nav)} r="4" fill="var(--surface)" stroke={item.color} strokeWidth="2.5" className="chart-active-point"/>)}</>}
     </svg>
     <div className="chart-date-readout" aria-live="polite">
@@ -541,6 +549,6 @@ function SettingsView({theme,setTheme,riskFree,setRiskFree,density,setDensity,ho
   </div>;
 }
 function ClassificationPanel({fund}:{fund:Fund}){const detail=fund.classDetail;const status=fund.classStatus??'UNCONFIRMED';const message=status==='CONFLICT'?classificationMessages.review:status==='CONFIRMED'?classificationMessages.confirmed:classificationMessages.unconfirmed;const sourceName:Record<string,string>={AMFI_SCHEME_MASTER:'AMFI Scheme Master (S0)',AMFI_NAVALL:'AMFI NAV catalog (S1)',AMFI_TER:'AMFI TER (S3)',AMFI_AAUM:'AMFI AAUM (S4)',AMFI_RULE:'AMFI rule'};const fields=[['assetClass','Asset class'],['group','Group'],['subCategory','Category'],['management','Management'],['riskBand','Category-implied risk band'],['philosophy','Investment philosophy'],['speciality','Speciality'],['lifecycle','Lifecycle']] as const;const genericS0=['income','growth','other scheme','not specified'].includes(normalizeFilterText(detail?.s0?.categoryRaw??''));const appliedSource=detail?.s0&&!genericS0?classificationMessages.source.s0_amfi_master:classificationMessages.source.s1_navall;const appliedCategory=detail?.s0&&!genericS0?detail.s0.categoryRaw:detail?.s1.categoryRaw??fund.category;return <section className="drawer-section classification-drawer"><div className="section-label"><span>CLASSIFICATION</span><span className={`status-chip status-${status.toLowerCase()}`}>{status==='CONFLICT'?<AlertTriangle size={12}/>:status==='CONFIRMED'?<BadgeCheck size={12}/>:<CircleHelp size={12}/>} {classificationMessages.status[status]}</span></div><div className="classification-badges"><span className="asset-class-badge">{fund.assetClass==='other'?'Unclassified':fund.assetClass==='commodity'?'Gold / Silver':fund.assetClass}</span><span>{fund.classRuleId}</span><span>Taxonomy v{fund.taxonomyVersion}</span></div><p><b>Applied AMFI category · {appliedSource}</b><span>{appliedCategory}</span></p><p><b>Group / category</b><span>{fund.group??'Not specified'} / {fund.subCategory}</span></p><small>{message}</small>{detail?.flags.length? <div className="classification-flag-list">{detail.flags.map(flag=><span key={flag}>{flag}</span>)}</div>:null}<details className="classification-why"><summary>Why this classification?</summary><div className="classification-provenance"><b>{classificationMessages.source.s0_amfi_master}</b><span>{detail?.s0?`${detail.s0.categoryRaw} · ${timestampText(detail.s0.observedAt)}`:'Not available; S1 fallback applies'}</span><b>{classificationMessages.source.s1_navall}</b><span>{detail?.s1.categoryRaw??classificationMessages.unknown} · {detail?.s1.observedAt?timestampText(detail.s1.observedAt):classificationMessages.unknown}</span><b>{classificationMessages.source.s2_mfapi}</b><span>{detail?.s2?`${detail.s2.categoryRaw} · ${timestampText(detail.s2.observedAt)} · informational only, not a vote`: 'Not available; NAV history source only'}</span><b>{classificationMessages.source.s3_amfi_ter}</b><span>{detail?.s3?`${detail.s3.categoryRaw} · ${timestampText(detail.s3.observedAt)}`:classificationMessages.unknown}</span><b>{classificationMessages.source.s4_amfi_aum}</b><span>{detail?.s4?`${detail.s4.categoryRaw} · ${timestampText(detail.s4.observedAt)}`:classificationMessages.unknown}</span><b>Field-level provenance</b>{fields.map(([key,label])=>{const provenance=fund.classificationProvenance?.[key];const value=key==='speciality'?fund.speciality?.join(', ')||'None':String((fund as unknown as Record<string,unknown>)[key]??'Not specified');return <span key={key}>{label}: {value} · {provenance?`${provenance.ruleId} · ${sourceName[provenance.source]??provenance.source}`:'source not recorded'}</span>})}<b>Risk label</b><span>Category-implied, not the scheme&apos;s official riskometer. NAVAll does not provide the official riskometer.</span></div></details></section>}
-function FundDrawer({fund,unavailable,loading,onRetryHistory,onClose,onCompare,riskWindow}:{fund:Fund,unavailable:boolean,loading:boolean,onRetryHistory:()=>void,onClose:()=>void,onCompare:()=>void,riskWindow:number}){const growth=growthSeries(fund.history);const drawerRef=useRef<HTMLElement>(null);const closeTimer=useRef<number|undefined>(undefined);const closingRef=useRef(false);const [isClosing,setIsClosing]=useState(false);const onCloseRef=useRef(onClose);onCloseRef.current=onClose;const closeSmooth=()=>{if(closingRef.current)return;closingRef.current=true;setIsClosing(true);closeTimer.current=window.setTimeout(()=>onCloseRef.current(),180);};useEffect(()=>{const onPointerDown=(event:PointerEvent)=>{if(window.matchMedia('(max-width: 767px)').matches)return;if(event.target instanceof Node&&!drawerRef.current?.contains(event.target))closeSmooth();};const onKeyDown=(event:KeyboardEvent)=>{if(event.key==="Escape"){event.preventDefault();closingRef.current=true;if(closeTimer.current!==undefined)window.clearTimeout(closeTimer.current);onCloseRef.current();}};document.addEventListener("pointerdown",onPointerDown);window.addEventListener("keydown",onKeyDown);return()=>{document.removeEventListener("pointerdown",onPointerDown);window.removeEventListener("keydown",onKeyDown);if(closeTimer.current!==undefined)window.clearTimeout(closeTimer.current);};},[]);return <><button type="button" className="drawer-scrim" onClick={closeSmooth} aria-label="Close fund details"/><aside ref={drawerRef} className={`fund-drawer${isClosing?" closing":""}`}><div className="drawer-header"><div><span className="eyebrow">FUND DETAIL</span><button type="button" className="drawer-close" onClick={closeSmooth}><X size={18}/></button><h2>{fund.name}</h2><p>{fund.amc}</p><div className="drawer-chips"><span title={`Asset class ${fund.assetClass}; rule ${fund.classRuleId}; taxonomy v${fund.taxonomyVersion}`}>{fund.subCategory}</span><span>{fund.plan}</span><span>{fund.option}</span></div></div></div><div className="drawer-nav"><div><small>LATEST NAV</small><b>{fund.nav.toFixed(4)}</b><span>{dateText(fund.navDate)}</span></div><FundBenchmarkSection fund={fund}/></div><div className="drawer-actions"><button className="button primary" onClick={onCompare}><GitCompareArrows size={15}/> Add to compare</button><button type="button" className="button secondary" onClick={closeSmooth}>Close</button></div><ClassificationPanel fund={fund}/><section className="drawer-section"><div className="section-label"><span>KEY STATS · {riskWindow}Y RISK WINDOW</span></div><div className="stat-grid">{['absolute_return_3m','absolute_return_6m','cagr_3y','std_dev','sharpe','max_drawdown'].map(id=>{const metric=metricRegistry.find(m=>m.id===id)!;return <div className="stat-tile" key={id} title={metric.description}><span>{metric.label}</span><b>{fmt(fund.metrics[id],metric.unit)}</b><small>{metric.availability==='unavailable'?'Unavailable: source not verified':fund.metrics[id]==null?metricReasonText(fund,id,metric.label):metricContextText(fund,id)}</small></div>})}</div></section><section className="drawer-section"><div className="card-title"><div><span className="eyebrow">GROWTH OF ₹10,000</span><h2>Historical value</h2></div><span className="approx-badge">NAV</span></div>{growth.length?<GrowthChart funds={[fund]}/>:<div className="chart-empty"><Activity size={22}/><span>{loading?"Loading this scheme's NAV history…":unavailable?"NAV history could not be loaded.":"Loading this scheme's NAV history…"}</span>{!loading&&<button className="link-button" onClick={onRetryHistory}>Retry NAV history</button>}</div>}</section><section className="drawer-section metric-accordion"><div className="section-label"><span>METRICS & DEFINITIONS</span></div>{metricRegistry.map(m=><details key={m.id}><summary title={fund.metrics[m.id]==null?metricReasonText(fund,m.id,m.label):metricContextText(fund,m.id)}><span>{m.label}</span><b>{fmt(fund.metrics[m.id],m.unit)}</b></summary><p>{m.description}{fund.metrics[m.id]==null?` ${metricReasonText(fund,m.id,m.label)}.`:''}</p></details>)}</section><div className="drawer-quality"><CircleHelp size={14}/><span>{fund.history.length?`${fund.history.length.toLocaleString('en-IN')} NAV observations loaded.`:unavailable?"History load failed; retry to fetch this scheme again.":'NAV history is loading automatically for this scheme.'}</span></div></aside></>}
+function FundDrawer({fund,unavailable,loading,onRetryHistory,onClose,onCompare,riskWindow}:{fund:Fund,unavailable:boolean,loading:boolean,onRetryHistory:()=>void,onClose:()=>void,onCompare:()=>void,riskWindow:number}){const drawerRef=useRef<HTMLElement>(null);const closeTimer=useRef<number|undefined>(undefined);const closingRef=useRef(false);const [isClosing,setIsClosing]=useState(false);const onCloseRef=useRef(onClose);onCloseRef.current=onClose;const closeSmooth=()=>{if(closingRef.current)return;closingRef.current=true;setIsClosing(true);closeTimer.current=window.setTimeout(()=>onCloseRef.current(),180);};useEffect(()=>{const onPointerDown=(event:PointerEvent)=>{if(window.matchMedia('(max-width: 767px)').matches)return;if(event.target instanceof Node&&!drawerRef.current?.contains(event.target))closeSmooth();};const onKeyDown=(event:KeyboardEvent)=>{if(event.key==="Escape"){event.preventDefault();closingRef.current=true;if(closeTimer.current!==undefined)window.clearTimeout(closeTimer.current);onCloseRef.current();}};document.addEventListener("pointerdown",onPointerDown);window.addEventListener("keydown",onKeyDown);return()=>{document.removeEventListener("pointerdown",onPointerDown);window.removeEventListener("keydown",onKeyDown);if(closeTimer.current!==undefined)window.clearTimeout(closeTimer.current);};},[]);return <><button type="button" className="drawer-scrim" onClick={closeSmooth} aria-label="Close fund details"/><aside ref={drawerRef} className={`fund-drawer${isClosing?" closing":""}`}><div className="drawer-header"><div><span className="eyebrow">FUND DETAIL</span><button type="button" className="drawer-close" onClick={closeSmooth}><X size={18}/></button><h2>{fund.name}</h2><p>{fund.amc}</p><div className="drawer-chips"><span title={`Asset class ${fund.assetClass}; rule ${fund.classRuleId}; taxonomy v${fund.taxonomyVersion}`}>{fund.subCategory}</span><span>{fund.plan}</span><span>{fund.option}</span></div></div></div><div className="drawer-nav"><div><small>LATEST NAV</small><b>{fund.nav.toFixed(4)}</b><span>{dateText(fund.navDate)}</span></div><FundBenchmarkSection fund={fund}/></div><div className="drawer-actions"><button className="button primary" onClick={onCompare}><GitCompareArrows size={15}/> Add to compare</button><button type="button" className="button secondary" onClick={closeSmooth}>Close</button></div><ClassificationPanel fund={fund}/><section className="drawer-section"><div className="section-label"><span>KEY STATS · {riskWindow}Y RISK WINDOW</span></div><div className="stat-grid">{['absolute_return_3m','absolute_return_6m','cagr_3y','std_dev','sharpe','max_drawdown'].map(id=>{const metric=metricRegistry.find(m=>m.id===id)!;return <div className="stat-tile" key={id} title={metric.description}><span>{metric.label}</span><b>{fmt(fund.metrics[id],metric.unit)}</b><small>{metric.availability==='unavailable'?'Unavailable: source not verified':fund.metrics[id]==null?metricReasonText(fund,id,metric.label):metricContextText(fund,id)}</small></div>})}</div></section><section className="drawer-section"><div className="card-title"><div><span className="eyebrow">GROWTH OF ₹10,000</span><h2>Historical value</h2></div><span className="approx-badge">NAV</span></div>{fund.history.length>0?<GrowthChart funds={[fund]}/>:<div className="chart-empty"><Activity size={22}/><span>{loading?"Loading this scheme's NAV history…":unavailable?"NAV history could not be loaded.":"Loading this scheme's NAV history…"}</span>{!loading&&<button className="link-button" onClick={onRetryHistory}>Retry NAV history</button>}</div>}</section><section className="drawer-section metric-accordion"><div className="section-label"><span>METRICS & DEFINITIONS</span></div>{metricRegistry.map(m=><details key={m.id}><summary title={fund.metrics[m.id]==null?metricReasonText(fund,m.id,m.label):metricContextText(fund,m.id)}><span>{m.label}</span><b>{fmt(fund.metrics[m.id],m.unit)}</b></summary><p>{m.description}{fund.metrics[m.id]==null?` ${metricReasonText(fund,m.id,m.label)}.`:''}</p></details>)}</section><div className="drawer-quality"><CircleHelp size={14}/><span>{fund.history.length?`${fund.history.length.toLocaleString('en-IN')} NAV observations loaded.`:unavailable?"History load failed; retry to fetch this scheme again.":'NAV history is loading automatically for this scheme.'}</span></div></aside></>}
 
 export default App;

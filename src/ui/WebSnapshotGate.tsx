@@ -5,9 +5,11 @@ import App from './App';
 import { unlockSnapshot, lockSnapshot, getUnlockedSnapshotManifest, prefetchSnapshot, restoreSnapshotOnDevice, checkForSnapshotUpdate } from '../adapters/snapshot/browserReader';
 import type { SnapshotManifest } from '../adapters/snapshot/types';
 import { clearDeviceSession, updateDeviceSessionDuration } from '../adapters/snapshot/deviceSession';
+import { historyLruCache } from '../app/historyCache';
 
 interface SnapshotSource { fetchedAt: number | null; dataAsOf: number | null; status: string; detail: string | null }
 interface SnapshotData { funds: Fund[]; manifest: SnapshotManifest; source: SnapshotSource; timings?: Record<string, number> }
+function clearSnapshotSession():void{lockSnapshot();historyLruCache.clear();}
 
 export default function WebSnapshotGate() {
   const [ready, setReady] = useState(false);
@@ -43,7 +45,7 @@ export default function WebSnapshotGate() {
       }, timings });
       setReady(true);
     }).catch(() => undefined);
-    return () => { current = false; lockSnapshot(); };
+    return () => { current = false; clearSnapshotSession(); };
   }, []);
 
   useEffect(() => {
@@ -90,14 +92,14 @@ export default function WebSnapshotGate() {
       setSnapshot({ funds: unlocked.funds, manifest: unlocked.manifest, source, timings: unlocked.timings });
       setReady(true);
     } catch (cause) {
-      lockSnapshot();
+      clearSnapshotSession();
       setError(cause instanceof Error ? cause.message : 'Could not unlock the FundScope data snapshot.');
     } finally { setBusy(false); setPhase(''); }
   };
 
   const lockAndClear = async () => {
     await clearDeviceSession();
-    lockSnapshot(); setSnapshot(null); setReady(false); setPassphrase(''); setManifest(null); setError(''); setUnlockTimings({});
+    clearSnapshotSession(); setSnapshot(null); setReady(false); setPassphrase(''); setManifest(null); setError(''); setUnlockTimings({});
   };
   const openAvailableUpdate = async () => {
     if (!updateAvailable) return;
@@ -122,7 +124,7 @@ export default function WebSnapshotGate() {
       }
       return;
     }
-    lockSnapshot(); setReady(false); setSnapshot(null); setPassphrase(''); setUpdateAvailable(null); setError('The snapshot key has changed. Enter the updated passphrase to continue.');
+    clearSnapshotSession(); setReady(false); setSnapshot(null); setPassphrase(''); setUpdateAvailable(null); setError('The snapshot key has changed. Enter the updated passphrase to continue.');
   };
   const changeSessionDays = (value: string) => {
     setSessionDays(value);
