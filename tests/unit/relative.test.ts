@@ -29,6 +29,22 @@ describe('relative and disclosure engines',()=>{
     expect(result[0]!.metrics.return_vs_subcategory_3y).toBe(2);
     expect(result[0]!.metricProvenance?.return_vs_subcategory_3y).toBe('PEER_MEDIAN');
   });
+  it('precomputes category peer ranks and percentiles for the default score factors',()=>{
+    const peers=[fund(1,12),fund(2,10),fund(3,8)].map((item,index)=>({...item,metrics:{...item.metrics,sharpe:3-index,std_dev:10+index*10,rolling_3y_average_return:12-index}}));
+    const result=applyRelativeMetrics(peers,3,6.5);
+    expect(result[0]!.metrics.peer_rank_cagr_5y).toBe(1);
+    expect(result[0]!.metrics.peer_percentile_cagr_5y).toBe(100);
+    expect(result[0]!.metrics.peer_rank_return_vs_subcategory_3y).toBe(1);
+    expect(result[0]!.metrics.peer_rank_std_dev).toBe(1);
+    expect(result[2]!.metrics.peer_percentile_sharpe).toBe(0);
+  });
+  it('uses explicit not-applicable reasons outside the active peer universe',()=>{
+    const closed={...fund(4),structure:'closed' as const};
+    const result=applyRelativeMetrics([fund(1,12),fund(2,10),fund(3,8),closed],3,6.5);
+    expect(result[3]!.metrics.peer_rank_sharpe).toBeNull();
+    expect(result[3]!.metricReasons?.peer_rank_sharpe).toBe('NOT_APPLICABLE');
+    expect(result[3]!.metricReasonDetails?.peer_rank_sharpe).toMatchObject({code:'NOT_APPLICABLE',cause:'OUTSIDE_ACTIVE_PEER_UNIVERSE'});
+  });
   it('exposes category standard deviation as the active peer median volatility',()=>{
     const peers=[12,10,8].map((volatility,index)=>({...fund(index+1),metrics:{...fund(index+1).metrics,std_dev:volatility}}));
     const result=applyRelativeMetrics(peers,3,6.5);

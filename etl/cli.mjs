@@ -20,6 +20,7 @@ import { decodeUtf8, decryptSnapshotFile, encodeUtf8, gunzipBytes, gzipBytes, en
 import { nextRetryAt, orderHistoryQueue } from './historyQueue.mjs';
 import { isPassphraseStrong } from '../scripts/passphrase-policy.mjs';
 import { encodeFundColumns, extractFundDetail } from '../src/adapters/snapshot/columnar.ts';
+import { buildSnapshotDelta } from '../src/adapters/snapshot/delta.ts';
 
 globalThis.crypto ??= webcrypto;
 const env = parseEnv();
@@ -380,7 +381,21 @@ async function loadVerifiedBenchmarkSeries(database) {
   return seriesById;
 }
 
-async function buildSnapshot(funds, sourceStatus, disclosures, database) {
+function downsampleSparkline(history) {
+  const latest = history.at(-1);
+  if (!latest || history.length < 2) return undefined;
+  const recent = history.filter((point) => point.date >= latest.date - 365);
+  if (recent.length < 2) return undefined;
+  const sampled = Array.from({ length: 12 }, (_, index) => {
+    const position = index * (recent.length - 1) / 11;
+    const left = Math.floor(position); const fraction = position - left;
+    return recent[left].nav * (1 - fraction) + recent[Math.min(recent.length - 1, left + 1)].nav * fraction;
+  });
+  const minimum = Math.min(...sampled); const maximum = Math.max(...sampled);
+  return maximum === minimum ? sampled.map(() => 0.5) : sampled.map((value) => (value - minimum) / (maximum - minimum));
+}
+
+async function buildSnapshot(funds, sourceStatus, disclosures, database, baseFunds, baseSnapshotId) {
   await rm(snapshotDir, { recursive: true, force: true });
   const dataRoot = join(snapshotDir, 'data');
   const salt = randomBytes(16);
@@ -413,9 +428,30 @@ async function buildSnapshot(funds, sourceStatus, disclosures, database) {
     await writeFile(localPath, encrypted);
     return { path, sha256: await sha256Hex(encrypted), encryptedBytes: encrypted.byteLength, compressedBytes: compressed.byteLength, plaintextBytes: plaintext.byteLength };
   }
-  const indexBytes = encodeFundColumns(funds);
+  const indexFunds = funds.map((fund) => ({ ...fund, sparkline: downsampleSparkline(fund.history ?? []) }));
+  const indexBytes = encodeFundColumns(indexFunds);
   const index = await writeEncrypted(`${snapshotPrefix}index.cols.enc`, indexBytes);
   if (index.compressedBytes > 1.5 * 1024 * 1024) fail(`Columnar index exceeds the 1.5 MiB compressed budget (${(index.compressedBytes / 1048576).toFixed(2)} MiB).`);
+  let latestNavDelta;
+  if (typeof baseSnapshotId === 'string' && baseSnapshotId && baseSnapshotId !== snapshotId) {
+    // The previous database stores NAV history but not the snapshot-only sparkline column.
+    // Reconstruct that deterministic column so a normal refresh does not mark every fund changed.
+    const baseIndexFunds = baseFunds.map((fund) => ({ ...fund, sparkline: fund.sparkline ?? downsampleSparkline(fund.history ?? []) }));
+    const delta = buildSnapshotDelta(baseIndexFunds, indexFunds, baseSnapshotId, snapshotId);
+    if (delta.upserts.length || delta.deleted_codes.length) {
+      const path = `${snapshotPrefix}latest-nav.delta.enc`;
+      const plaintext = encodeUtf8(JSON.stringify(delta));
+      const compressed = await gzipBytes(plaintext);
+      const encrypted = await encryptSnapshotFileV2(dek, path, snapshotId, compressed);
+      const deltaBudgetBytes = 512 * 1024;
+      if (encrypted.byteLength <= deltaBudgetBytes) {
+        await mkdir(dirname(join(snapshotDir, path)), { recursive: true });
+        await writeFile(join(snapshotDir, path), encrypted);
+        latestNavDelta = { base_snapshot_id: baseSnapshotId, file: { path, sha256: await sha256Hex(encrypted), encryptedBytes: encrypted.byteLength, compressedBytes: compressed.byteLength, plaintextBytes: plaintext.byteLength } };
+        logger(`Encrypted latest NAV delta prepared: ${delta.upserts.length.toLocaleString('en-IN')} changed funds, ${delta.deleted_codes.length} removed, ${(encrypted.byteLength / 1024).toFixed(1)} KiB.`);
+      } else logger(`Latest NAV delta is ${(encrypted.byteLength / 1048576).toFixed(2)} MiB and exceeds the 512 KiB cap; returning devices will use the full index.`);
+    } else logger('Latest NAV delta omitted because the screener index is unchanged.');
+  } else logger('Latest NAV delta omitted because no prior published snapshot id is recorded.');
   for (let start = 0; start < funds.length; start += 100) {
     for (const fund of funds.slice(start, start + 100)) {
       const detail = extractFundDetail(fund);
@@ -435,10 +471,12 @@ async function buildSnapshot(funds, sourceStatus, disclosures, database) {
     disclosures,
     encryption: { version: 2, algorithm: 'AES-256-GCM', kdf: 'PBKDF2-SHA256', iterations, salt: toBase64(salt), keyId, wrappedDek },
     index,
+    ...(latestNavDelta ? { latest_nav_delta: latestNavDelta } : {}),
     details: detailRefs,
     histories: historyRefs,
   };
   await writeFile(join(dataRoot, 'manifest.json'), JSON.stringify(manifest));
+  database.setLocalState('snapshot-id', snapshotId);
   const archivePath = join(dataDir, 'snapshot.tar.gz');
   await runTar(['-czf', archivePath, 'data'], snapshotDir);
   const archiveSize = (await stat(archivePath)).size;
@@ -529,6 +567,8 @@ async function main() {
   let qualityFailure = null;
   try {
     let funds = database.getFunds();
+    const baseFunds = funds;
+    const baseSnapshotId = database.getLocalState('snapshot-id', null);
     const storedStatuses = new Map(database.getHistoryStatuses().map((row) => [row.code, row]));
     funds = funds.map((fund) => { const status = storedStatuses.get(fund.code); return status ? { ...fund, historyStatus: status.status, historyAttempts: status.attempts, historyLastError: status.lastError ?? undefined, historyNextRetryAt: status.nextRetryAt ?? undefined, historyFetchedAt: status.fetchedAt ?? fund.historyFetchedAt } : fund; });
     logger(`Database loaded: ${funds.length.toLocaleString('en-IN')} schemes.`);
@@ -621,7 +661,7 @@ async function main() {
     database.setSourceState('amfi_disclosures', { fetchedAt: Date.now(), dataAsOf: status.dataAsOf, status: 'ok', detail: `AAUM: ${aumMessage}; TER: ${terMessage}.` });
     const integrity = database.integrityCheck();
     if (integrity.length !== 1 || integrity[0] !== 'ok') fail('SQLite integrity check failed before publishing.');
-    await buildSnapshot(funds, status, { aum: aumMessage, ter: terMessage }, database);
+    await buildSnapshot(funds, status, { aum: aumMessage, ter: terMessage }, database, baseFunds, baseSnapshotId);
     database.close();
     await encryptDatabase();
     await publishRelease();

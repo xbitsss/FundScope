@@ -25,6 +25,7 @@ export interface SnapshotManifest {
     canary?: SnapshotFileRef & { plaintext: 'FundScope snapshot canary:v1' };
   };
   index: SnapshotFileRef;
+  latest_nav_delta?: { base_snapshot_id:string; file:SnapshotFileRef };
   details?: Record<string, SnapshotFileRef>;
   histories: Record<string, SnapshotFileRef>;
   coverage?: { open_direct_growth?: { total:number; with_history:number }; all?: { total:number; with_history:number }; failed?:number; pending?:number; last_run?:string };

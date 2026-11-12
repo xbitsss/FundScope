@@ -5,6 +5,8 @@ import {
 } from '../crypto/snapshotCrypto';
 import { decodeFundColumns } from './columnar';
 import { getDeviceSession, saveDeviceSession } from './deviceSession';
+import { readCachedSnapshotIndex, saveCachedSnapshotIndex, type CachedSnapshotIndex } from './localCache';
+import { applySnapshotDelta } from './delta';
 
 const CANARY_TEXT = 'FundScope snapshot canary:v1';
 interface UnlockedSnapshot { manifest: SnapshotManifest; key: CryptoKey; baseUrl: string }
@@ -39,6 +41,7 @@ function validateManifest(value: unknown): SnapshotManifest {
       Number.isSafeInteger(file.encryptedBytes) && file.encryptedBytes > 0;
   };
   if (!safeRef(manifest.index)) throw new Error('Snapshot index reference is malformed.');
+  if (manifest.latest_nav_delta && (version !== 2 || typeof manifest.latest_nav_delta.base_snapshot_id !== 'string' || !manifest.latest_nav_delta.base_snapshot_id || !safeRef(manifest.latest_nav_delta.file))) throw new Error('Snapshot delta reference is malformed.');
   if (version === 1 && (!manifest.encryption.canary || !safeRef(manifest.encryption.canary))) throw new Error('Snapshot canary reference is malformed.');
   if (version === 2 && (typeof manifest.snapshot_id !== 'string' || !manifest.snapshot_id || typeof manifest.encryption.keyId !== 'string' || !manifest.encryption.wrappedDek)) {
     throw new Error('Snapshot key settings are malformed.');
@@ -113,6 +116,36 @@ function decryptFile(manifest: SnapshotManifest, key: CryptoKey, path: string, b
     : decryptSnapshotFile(key, path, bytes);
 }
 
+function exactBuffer(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+async function readVerifiedCachedIndex(): Promise<CachedSnapshotIndex | null> {
+  try {
+    const cached = await readCachedSnapshotIndex();
+    if (!cached || !(cached.encryptedIndex instanceof ArrayBuffer)) return null;
+    const manifest = validateManifest(cached.manifest);
+    if (manifest.schema_version !== 2 || cached.indexPath !== manifest.index.path ||
+      cached.encryptedBytes !== cached.encryptedIndex.byteLength || !/^[0-9a-f]{64}$/.test(cached.sha256) ||
+      await sha256Hex(new Uint8Array(cached.encryptedIndex)) !== cached.sha256) return null;
+    return { ...cached, manifest };
+  } catch { return null; }
+}
+
+async function cacheEncryptedIndex(manifest: SnapshotManifest, encrypted: Uint8Array | ArrayBuffer): Promise<void> {
+  if (manifest.schema_version !== 2) return;
+  const bytes = encrypted instanceof Uint8Array ? encrypted : new Uint8Array(encrypted);
+  try {
+    await saveCachedSnapshotIndex({
+      manifest,
+      indexPath: manifest.index.path,
+      encryptedIndex: exactBuffer(bytes),
+      encryptedBytes: bytes.byteLength,
+      sha256: await sha256Hex(bytes),
+    });
+  } catch { /* Optional encrypted cache; the verified network snapshot remains usable. */ }
+}
+
 export async function unlockSnapshot(passphrase: string, baseUrl = import.meta.env.BASE_URL, options: { remember?: boolean; rememberDays?: number | null; onProgress?: (phase: string) => void } = {}): Promise<{ manifest: SnapshotManifest; funds: Fund[]; timings: Record<string, number> }> {
   if (Date.now() < blockedUntil) throw new Error(`Please wait ${Math.ceil((blockedUntil - Date.now()) / 1000)} seconds before trying again.`);
   const base = normalizeBaseUrl(baseUrl);
@@ -172,6 +205,7 @@ export async function unlockSnapshot(passphrase: string, baseUrl = import.meta.e
     failedUnlocks = 0; blockedUntil = 0;
     latestUnlockTimings = result.timings ?? {};
     unlocked = { manifest, key, baseUrl: base };
+    await cacheEncryptedIndex(manifest, encrypted);
     return { manifest, funds: result.funds, timings: latestUnlockTimings };
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('Incorrect passphrase')) {
@@ -184,37 +218,93 @@ export async function unlockSnapshot(passphrase: string, baseUrl = import.meta.e
   }
 }
 
-export async function restoreSnapshotOnDevice(baseUrl = import.meta.env.BASE_URL): Promise<{ manifest: SnapshotManifest; funds: Fund[] } | null> {
+export async function restoreSnapshotOnDevice(baseUrl = import.meta.env.BASE_URL, options: { manifest?: SnapshotManifest } = {}): Promise<{ manifest: SnapshotManifest; funds: Fund[] } | null> {
   const base = normalizeBaseUrl(baseUrl);
-  const fetched = await (manifestPromise ?? fetchManifest(base));
-  const { manifest } = fetched;
-  if (manifest.schema_version !== 2 || !manifest.encryption.keyId) return null;
-  const session = await getDeviceSession(manifest.encryption.keyId);
-  if (!session) return null;
-  const encrypted = await fetchFile(base, manifest.index);
+  const cached = await readVerifiedCachedIndex();
+  const fetched = options.manifest ? { manifest: validateManifest(options.manifest), baseUrl: base } : await (manifestPromise ?? fetchManifest(base)).catch(() => null);
+  let manifest = fetched?.manifest ?? cached?.manifest;
+  if (!manifest || manifest.schema_version !== 2 || !manifest.encryption.keyId) return null;
+  let session = await getDeviceSession(manifest.encryption.keyId);
+  // If an online snapshot rotated its data key, retain the last good offline snapshot
+  // until the user enters the new passphrase.
+  const activeSnapshot = unlocked;
+  let snapshotKey = activeSnapshot && activeSnapshot.manifest.encryption.keyId === manifest.encryption.keyId ? activeSnapshot.key : undefined;
+  if (!session && !snapshotKey && cached && cached.manifest.encryption.keyId !== manifest.encryption.keyId) {
+    const cachedSession = await getDeviceSession(cached.manifest.encryption.keyId!);
+    const cachedKey = activeSnapshot && activeSnapshot.manifest.encryption.keyId === cached.manifest.encryption.keyId ? activeSnapshot.key : undefined;
+    if (cachedSession || cachedKey) { manifest = cached.manifest; session = cachedSession; snapshotKey = cachedKey; }
+  }
+  if (!session && !snapshotKey) return null;
+
+  let encrypted: Uint8Array | null = null;
+  let result: { funds: Fund[]; key: CryptoKey; encryptedIndex?: ArrayBuffer } | null = null;
+  if (cached && cached.manifest.snapshot_id === manifest.snapshot_id && cached.manifest.encryption.keyId === manifest.encryption.keyId) {
+    encrypted = new Uint8Array(cached.encryptedIndex);
+  } else if (cached && manifest.latest_nav_delta && manifest.latest_nav_delta.base_snapshot_id === cached.manifest.snapshot_id &&
+    cached.manifest.encryption.keyId === manifest.encryption.keyId) {
+    try {
+      const deltaBytes = await fetchFile(base, manifest.latest_nav_delta.file);
+      let worker: Worker | null = warmUnlockWorker;
+      warmUnlockWorker = null;
+      if (!worker) try { worker = new Worker(new URL('./unlock.worker.ts', import.meta.url), { type: 'module', name: 'fundscope-device-delta-restore' }); } catch { worker = null; }
+      if (worker) {
+        const baseIndex = cached.encryptedIndex.slice(0);
+        const deltaBuffer = exactBuffer(deltaBytes);
+        result = await new Promise<{ funds: Fund[]; key: CryptoKey; encryptedIndex: ArrayBuffer }>((resolve, reject) => {
+          worker!.onmessage = (event: MessageEvent<{ type: string; funds?: Fund[]; key?: CryptoKey; encryptedIndex?: ArrayBuffer; message?: string }>) => {
+            if (event.data.type === 'success-delta' && event.data.funds && event.data.key && event.data.encryptedIndex) resolve({ funds: event.data.funds, key: event.data.key, encryptedIndex: event.data.encryptedIndex });
+            else reject(new Error(event.data.message ?? 'Snapshot delta could not be applied.'));
+          };
+          worker!.onerror = () => reject(new Error('Snapshot delta worker failed.'));
+          worker!.postMessage({ type: 'restore-delta', manifest, baseManifest: cached.manifest, baseIndex, delta: deltaBuffer, ...(session ? { session } : {}), ...(snapshotKey ? { snapshotKey } : {}) }, [baseIndex, deltaBuffer]);
+        }).finally(() => worker?.terminate());
+        encrypted = new Uint8Array(result.encryptedIndex!);
+      }
+    } catch {
+      // Invalid, unavailable or incompatible deltas always fall back to the full index.
+      result = null;
+    }
+  }
+
+  if (!result && !encrypted) {
+    try { encrypted = await fetchFile(base, manifest.index); }
+    catch (error) {
+      if (!options.manifest && cached && cached.manifest.encryption.keyId === manifest.encryption.keyId) {
+        manifest = cached.manifest;
+        encrypted = new Uint8Array(cached.encryptedIndex);
+      }
+      else throw error;
+    }
+  }
+  if (!result && !encrypted) return null;
+  if (!result && encrypted) {
   let worker: Worker | null = warmUnlockWorker;
   warmUnlockWorker = null;
   if (!worker) try { worker = new Worker(new URL('./unlock.worker.ts', import.meta.url), { type: 'module', name: 'fundscope-device-restore' }); } catch { worker = null; }
-  let result: { funds: Fund[]; key: CryptoKey };
   if (worker) {
-    const indexBuffer = encrypted.buffer.slice(encrypted.byteOffset, encrypted.byteOffset + encrypted.byteLength);
+    const indexBuffer = exactBuffer(encrypted);
     result = await new Promise<{ funds: Fund[]; key: CryptoKey }>((resolve, reject) => {
       worker!.onmessage = (event: MessageEvent<{ type: string; funds?: Fund[]; key?: CryptoKey; message?: string }>) => {
         if (event.data.type === 'success' && event.data.funds && event.data.key) resolve({ funds: event.data.funds, key: event.data.key });
         else reject(new Error(event.data.message ?? 'Saved device unlock failed.'));
       };
       worker!.onerror = () => reject(new Error('Saved device unlock worker failed.'));
-      worker!.postMessage({ type: 'restore', manifest, index: indexBuffer, session }, [indexBuffer]);
+      worker!.postMessage({ type: 'restore', manifest, index: indexBuffer, ...(session ? { session } : {}), ...(snapshotKey ? { snapshotKey } : {}) }, [indexBuffer]);
     }).finally(() => worker?.terminate());
   } else {
-    const { key } = await unwrapSnapshotDek(session.key, session.keyId, session.wrappedDek);
+    const key = snapshotKey ?? (session ? (await unwrapSnapshotDek(session.key, session.keyId, session.wrappedDek)).key : null);
+    if (!key) throw new Error('No active device key is available for this snapshot.');
     const compressed = await decryptSnapshotFileV2(key, manifest.index.path, manifest.snapshot_id ?? '', encrypted);
     const funds = decodeFundColumns(await gunzipBytes(compressed));
     result = { funds, key };
   }
-  if (result.funds.length !== manifest.fund_count) throw new Error('Saved snapshot fund count does not match its manifest.');
-  unlocked = { manifest, key: result.key, baseUrl: base };
-  return { manifest, funds: result.funds };
+  }
+  const restored = result;
+  if (!restored) throw new Error('Saved snapshot could not be restored.');
+  if (restored.funds.length !== manifest.fund_count) throw new Error('Saved snapshot fund count does not match its manifest.');
+  unlocked = { manifest, key: restored.key, baseUrl: base };
+  await cacheEncryptedIndex(manifest, restored.encryptedIndex ?? encrypted!);
+  return { manifest, funds: restored.funds };
 }
 
 export async function loadSnapshotDetails(codes: number[]): Promise<Map<number, Partial<Fund>>> {

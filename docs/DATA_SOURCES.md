@@ -69,6 +69,10 @@ The read-only discovery run is recorded in [classification-discovery-c0.md](clas
 - The browser keeps loaded NAV series in IndexedDB with a snapshot ID and an in-memory cache. A new snapshot invalidates the old series; a reload on the same snapshot preserves them.
 - Missing references are reported as `not in snapshot yet`; integrity/decryption failures are reported separately and are retryable. The browser does not calculate replacement metrics from loaded history, so ETL metrics and their reason codes remain authoritative.
 
+## Daily NAV refresh timing (13 November 2026)
+
+The GitHub Actions schedule runs at 06:45, 18:45, and 23:30 India time (`01:15`, `13:15`, and `18:00` UTC). The late run gives AMFI's NAVAll refresh a 30-minute buffer after SEBI's general 11:00 PM same-business-day NAV disclosure limit. SEBI lists next-business-day exceptions for schemes with ETCD exposure, FoFs, specified overseas investments, and delayed underlying valuations, so the late run cannot guarantee every scheme's NAV is present that night. The Actions run remains a full refresh; compared with two daily runs, three scheduled runs increase scheduled source polling by 50%. There is no change to source selection or history-fetch policy. See the [SEBI March 2026 Mutual Funds Master Circular](https://www.sebi.gov.in/sebi_data/attachdocs/mar-2026/1774024028162.pdf), paragraph 9.3.4.
+
 The v2 migration introduced versioned family/subcategory rules and persisted provenance. The production classifier is now taxonomy v3: AMFI Scheme Master is S0 primary, NAVAll is S1 fallback, AMFI TER/AAUM corroborate, and MFapi is informational history metadata only. Unknown categories and ambiguous underlyings stay Unclassified with a reason code. The AMFI parser retains `N.A.` NAV rows as master records and checks feed shape before replacing the cached catalog. See [CLASSIFICATION.md](CLASSIFICATION.md) for current rules, status behavior, migration and audit commands.
 
 ### Classification source policy (taxonomy v3, 2 November 2026)

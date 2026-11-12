@@ -4,11 +4,12 @@ import { TAXONOMY_VERSION } from '../../domain/taxonomy/assetClass';
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const fields = ['name', 'amc', 'category', 'assetClass', 'classRuleId', 'subCategory', 'structure', 'plan', 'option', 'management', 'group', 'riskBand', 'philosophy', 'speciality', 'lifecycle', 'classStatus', 'headerRaw'] as const;
-const reasonCodes = ['INSUFFICIENT_HISTORY', 'DATA_GAPS', 'SOURCE_MISSING', 'NO_BENCHMARK', 'NOT_APPLICABLE', 'NA_CATEGORY', 'UNCLASSIFIED_FUND', 'UNKNOWN'] as const;
+const SPARKLINE_POINTS=12;
+const reasonCodes = ['INSUFFICIENT_HISTORY', 'DATA_GAPS', 'SOURCE_MISSING', 'NO_BENCHMARK', 'NOT_APPLICABLE', 'NA_CATEGORY', 'UNCLASSIFIED_FUND', 'UNKNOWN', 'TOO_FEW_SAMPLES', 'ZERO_DENOMINATOR', 'UNAVAILABLE_SOURCE', 'INSUFFICIENT_ALIGNED_HISTORY'] as const;
 const reasonToId = new Map(reasonCodes.map((reason, index) => [reason, index + 1]));
 const idToReason = new Map(reasonCodes.map((reason, index) => [index + 1, reason]));
 type Field = typeof fields[number];
-interface Header { format: 'fundscope-columnar-v1'; count: number; fields: Field[]; dictionaries: Record<Field, string[]>; metrics: string[]; reasonCodes: string[] }
+interface Header { format: 'fundscope-columnar-v1'; count: number; fields: Field[]; dictionaries: Record<Field, string[]>; metrics: string[]; reasonCodes: string[]; sparklinePoints?:number }
 
 export interface NormalizedFundColumnRow {
   scheme_code: number; name: string; amc: string; category: string; asset_class: string; class_rule_id: string;
@@ -25,6 +26,12 @@ function fieldValue(fund: Fund, field: Field): string {
   return field === 'speciality' ? (Array.isArray(value) ? value.join('\u001f') : '') : typeof value === 'string' ? value : '';
 }
 
+function resampleSparkline(values:number[]|undefined):number[]|null{
+  if(!values?.length||values.some(value=>!Number.isFinite(value)))return null;
+  if(values.length===1)return Array.from({length:SPARKLINE_POINTS},()=>values[0]!);
+  return Array.from({length:SPARKLINE_POINTS},(_,index)=>{const position=index*(values.length-1)/(SPARKLINE_POINTS-1);const left=Math.floor(position);const fraction=position-left;return values[left]!*(1-fraction)+values[Math.min(values.length-1,left+1)]!*fraction;});
+}
+
 /** Compact binary list index. Detailed classification/provenance/history stays in per-fund detail packs. */
 export function encodeFundColumns(funds: Fund[]): Uint8Array {
   const dictionaries = {} as Record<Field, string[]>;
@@ -35,12 +42,14 @@ export function encodeFundColumns(funds: Fund[]): Uint8Array {
     idMaps[field] = new Map(values.map((value, index) => [value, index]));
   }
   const metrics = [...new Set(funds.flatMap(fund => Object.keys(fund.metrics ?? {})))].sort();
-  const header: Header = { format: 'fundscope-columnar-v1', count: funds.length, fields: [...fields], dictionaries, metrics, reasonCodes: [...reasonCodes] };
+  const hasSparklines=funds.some(fund=>Array.isArray(fund.sparkline)&&fund.sparkline.length>0);
+  const header: Header = { format: 'fundscope-columnar-v1', count: funds.length, fields: [...fields], dictionaries, metrics, reasonCodes: [...reasonCodes], ...(hasSparklines?{sparklinePoints:SPARKLINE_POINTS}:{}) };
   const headerBytes = encoder.encode(JSON.stringify(header));
   const prefixBytes = (4 + headerBytes.length + 3) & ~3;
   const codeBytes = funds.length * 4; const navBytes = funds.length * 8; const dateBytes = funds.length * 4;
   const fieldsBytes = funds.length * fields.length * 2; const metricsBytes = funds.length * metrics.length * 4; const reasonsBytes = funds.length * metrics.length;
-  const output = new Uint8Array(prefixBytes + codeBytes + navBytes + dateBytes + fieldsBytes + metricsBytes + reasonsBytes);
+  const sparklineBytes=hasSparklines?funds.length*SPARKLINE_POINTS*2:0;
+  const output = new Uint8Array(prefixBytes + codeBytes + navBytes + dateBytes + fieldsBytes + metricsBytes + reasonsBytes + sparklineBytes);
   const view = new DataView(output.buffer);
   view.setUint32(0, headerBytes.length, true); output.set(headerBytes, 4);
   let offset = prefixBytes;
@@ -50,6 +59,7 @@ export function encodeFundColumns(funds: Fund[]): Uint8Array {
   for (const field of fields) for (const fund of funds) { view.setUint16(offset, idMaps[field].get(fieldValue(fund, field)) ?? 0, true); offset += 2; }
   for (const metric of metrics) for (const fund of funds) { const raw = fund.metrics?.[metric]; view.setFloat32(offset, typeof raw === 'number' && Number.isFinite(raw) ? raw : Number.NaN, true); offset += 4; }
   for (const metric of metrics) for (const fund of funds) { output[offset++] = reasonToId.get(String(fund.metricReasons?.[metric] ?? '') as typeof reasonCodes[number]) ?? 0; }
+  if(hasSparklines)for(const fund of funds){const values=resampleSparkline(fund.sparkline);for(let point=0;point<SPARKLINE_POINTS;point++){const value=values?.[point];view.setUint16(offset,value===undefined?0xffff:Math.round(Math.max(0,Math.min(1,value))*0xfffe),true);offset+=2;}}
   if (offset !== output.length) throw new Error('Columnar index length calculation failed.');
   return output;
 }
@@ -125,6 +135,8 @@ export function decodeFundColumns(input: Uint8Array | ArrayBuffer): Fund[] {
   for (const metric of header.metrics) { const values = new Float32Array(count); for (let i = 0; i < count; i++) { values[i] = view.getFloat32(offset, true); offset += 4; } metricValues.set(metric, values); }
   const metricReasons = new Map<string, Uint8Array>();
   for (const metric of header.metrics) { const values = bytes.subarray(offset, offset + count); metricReasons.set(metric, values); offset += count; }
+  const sparklineRows:number[][]|undefined=header.sparklinePoints===undefined?undefined:Array.from({length:count},()=>[]);
+  if(header.sparklinePoints!==undefined){if(!Number.isInteger(header.sparklinePoints)||header.sparklinePoints<2||header.sparklinePoints>128)throw new Error('Columnar sparkline shape is invalid.');const sparklineBytes=count*header.sparklinePoints*2;if(offset+sparklineBytes>bytes.byteLength)throw new Error('Columnar sparkline section is truncated.');for(let fundIndex=0;fundIndex<count;fundIndex++){let hasValue=false;const values=sparklineRows![fundIndex]!;for(let point=0;point<header.sparklinePoints;point++){const value=view.getUint16(offset,true);offset+=2;if(value===0xffff)values.push(Number.NaN);else{values.push(value/0xfffe);hasValue=true;}}if(!hasValue)sparklineRows![fundIndex]=[];}}
   if (offset !== bytes.byteLength) throw new Error('Snapshot columnar index has an unexpected trailing section.');
   return Array.from({ length: count }, (_, index) => {
     const text = (field: Field) => header.dictionaries[field]?.[fieldIds.get(field)?.[index] ?? 0] ?? '';
@@ -145,6 +157,7 @@ export function decodeFundColumns(input: Uint8Array | ArrayBuffer): Fund[] {
       riskBand: (text('riskBand') || 'Not specified') as Fund['riskBand'], philosophy: (text('philosophy') || 'Blend/Unspecified') as Fund['philosophy'],
       speciality, lifecycle: (text('lifecycle') || 'active') as Fund['lifecycle'], classStatus: text('classStatus') as Fund['classStatus'],
       headerRaw: text('headerRaw') || undefined, metricReasons: reasons,
+      ...(sparklineRows?.[index]?.length?{sparkline:sparklineRows[index]!.map(value=>Number.isFinite(value)?value:0)}:{}),
     };
     return fund;
   });

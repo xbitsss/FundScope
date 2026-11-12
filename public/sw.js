@@ -60,7 +60,10 @@ self.addEventListener('fetch', (event) => {
   if (relativePath === 'data/manifest.json') {
     if (url.searchParams.has('fresh')) {
       event.respondWith(fetch(request).then(async (response) => {
-        if (response.ok) await caches.open(DATA_CACHE).then((cache) => cache.put(new URL('data/manifest.json', scopeUrl).href, response.clone()));
+        if (response.ok) {
+          await caches.open(DATA_CACHE).then((cache) => cache.put(new URL('data/manifest.json', scopeUrl).href, response.clone()));
+          await response.clone().json().then((manifest) => pruneOldSnapshots(manifest.snapshot_id)).catch(() => undefined);
+        }
         return response;
       }));
       return;

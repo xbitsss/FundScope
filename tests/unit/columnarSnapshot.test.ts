@@ -16,6 +16,15 @@ describe('columnar snapshot codec',()=>{
     expect(decoded[0]!.classDetail).toBeUndefined();
   });
 
+  it('stores optional normalized sparklines as a compact typed column while leaving missing histories empty',()=>{
+    const values=Array.from({length:12},(_,index)=>index/11);
+    const decoded=decodeFundColumns(encodeFundColumns([fund(1,{sparkline:values}),fund(2,{sparkline:undefined})]));
+    expect(decoded[0]!.sparkline).toHaveLength(12);
+    expect(decoded[0]!.sparkline?.[0]).toBe(0);
+    expect(decoded[0]!.sparkline?.at(-1)).toBe(1);
+    expect(decoded[1]!.sparkline).toBeUndefined();
+  });
+
   it('rejects truncated and unknown-format columnar buffers',()=>{
     expect(()=>decodeFundColumns(new Uint8Array([1,2]))).toThrow(/truncated/);
     const invalid=new Uint8Array([0,0,0,0]);

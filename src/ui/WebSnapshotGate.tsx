@@ -20,7 +20,7 @@ export default function WebSnapshotGate() {
   const [sessionDays, setSessionDays] = useState(() => { try { return localStorage.getItem('fundscope-session-days') ?? '30'; } catch { return '30'; } });
   const [manifest, setManifest] = useState<ReturnType<typeof getUnlockedSnapshotManifest>>(null);
   const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
-  const [updateAvailable, setUpdateAvailable] = useState<{ keyChanged: boolean } | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState<{ keyChanged: boolean; manifest: SnapshotManifest; applying?: boolean; error?: string } | null>(null);
   const [unlockTimings, setUnlockTimings] = useState<Record<string, number>>({});
   const unlockStartedAt = useRef<number | null>(null);
 
@@ -55,7 +55,7 @@ export default function WebSnapshotGate() {
         if (!current) return;
         const oldId = snapshot.manifest.snapshot_id ?? snapshot.manifest.generated_at;
         const newId = latest.snapshot_id ?? latest.generated_at;
-        if (newId !== oldId) setUpdateAvailable({ keyChanged: latest.encryption.keyId !== snapshot.manifest.encryption.keyId });
+        if (newId !== oldId) setUpdateAvailable({ keyChanged: latest.encryption.keyId !== snapshot.manifest.encryption.keyId, manifest: latest });
       } catch { /* Keep the current working snapshot when update checks are offline. */ }
     };
     void check();
@@ -101,7 +101,27 @@ export default function WebSnapshotGate() {
   };
   const openAvailableUpdate = async () => {
     if (!updateAvailable) return;
-    if (!updateAvailable.keyChanged) { window.location.reload(); return; }
+    if (!updateAvailable.keyChanged) {
+      setUpdateAvailable(current => current ? { ...current, applying: true, error: undefined } : current);
+      try {
+        const restored = await restoreSnapshotOnDevice(undefined, { manifest: updateAvailable.manifest });
+        if (!restored) throw new Error('This snapshot needs a fresh device unlock. Enter your passphrase again to continue.');
+        const fetchedAt = Date.parse(restored.manifest.generated_at);
+        setManifest(restored.manifest);
+        setSnapshot(current => current ? { ...current, funds: restored.funds, manifest: restored.manifest, source: {
+          ...current.source,
+          fetchedAt: Number.isFinite(fetchedAt) ? fetchedAt : null,
+          dataAsOf: restored.manifest.data_as_of,
+          status: 'ok',
+          detail: `${restored.manifest.fund_count.toLocaleString('en-IN')} schemes · updated from the local encrypted snapshot cache.`,
+        } } : current);
+        setUpdateAvailable(null);
+      } catch (cause) {
+        const message = cause instanceof Error ? cause.message : 'The new snapshot could not be applied.';
+        setUpdateAvailable(current => current ? { ...current, applying: false, error: message } : current);
+      }
+      return;
+    }
     lockSnapshot(); setReady(false); setSnapshot(null); setPassphrase(''); setUpdateAvailable(null); setError('The snapshot key has changed. Enter the updated passphrase to continue.');
   };
   const changeSessionDays = (value: string) => {

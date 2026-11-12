@@ -1,28 +1,35 @@
 import type { Fund } from '../../domain/types';
 import type { SnapshotManifest } from './types';
-import { constantTimeEqual, decodeUtf8, decryptSnapshotFile, decryptSnapshotFileV2, deriveSnapshotKey, encodeUtf8, fromBase64, gunzipBytes, unwrapSnapshotDek } from '../crypto/snapshotCrypto';
-import { decodeFundColumns } from './columnar';
+import { constantTimeEqual, decodeUtf8, decryptSnapshotFile, decryptSnapshotFileV2, deriveSnapshotKey, encodeUtf8, fromBase64, gunzipBytes, gzipBytes, encryptSnapshotFileV2, unwrapSnapshotDek } from '../crypto/snapshotCrypto';
+import { decodeFundColumns, encodeFundColumns } from './columnar';
+import { applySnapshotDelta } from './delta';
 import { saveDeviceSession, type DeviceSession } from './deviceSession';
 
 type UnlockRequest = { type: 'unlock'; passphrase: string; manifest: SnapshotManifest; index: ArrayBuffer; canary?: ArrayBuffer; remember?: boolean; rememberDays?: number | null };
-type RestoreRequest = { type: 'restore'; manifest: SnapshotManifest; index: ArrayBuffer; session: DeviceSession };
+type RestoreRequest = { type: 'restore'; manifest: SnapshotManifest; index: ArrayBuffer; session?: DeviceSession; snapshotKey?: CryptoKey };
+type DeltaRestoreRequest = { type: 'restore-delta'; manifest: SnapshotManifest; baseManifest: SnapshotManifest; baseIndex: ArrayBuffer; delta: ArrayBuffer; session?: DeviceSession; snapshotKey?: CryptoKey };
 type UnlockResponse = { type: 'success'; funds: Fund[]; key: CryptoKey; timings: Record<string, number>; remembered: boolean } | { type: 'error'; message: string };
 
-self.addEventListener('message', (event: MessageEvent<UnlockRequest | RestoreRequest>) => {
-  if (event.data?.type !== 'unlock' && event.data?.type !== 'restore') return;
+self.addEventListener('message', (event: MessageEvent<UnlockRequest | RestoreRequest | DeltaRestoreRequest>) => {
+  if (event.data?.type !== 'unlock' && event.data?.type !== 'restore' && event.data?.type !== 'restore-delta') return;
   void (async () => {
     const marks: Record<string, number> = {};
     try {
-      const { manifest, index } = event.data;
+      const { manifest } = event.data;
       const progress = (phase: string) => { if (event.data.type === 'unlock') self.postMessage({ type: 'progress', phase }); };
       const mark = (name: string, start: number) => { marks[name] = performance.now() - start; };
       let key: CryptoKey;
       let rawDek: Uint8Array | undefined;
-      if (event.data.type === 'restore') {
-        if (manifest.schema_version !== 2 || manifest.encryption.keyId !== event.data.session.keyId) throw new Error('The saved device key does not match this snapshot.');
-        const unwrapped = await unwrapSnapshotDek(event.data.session.key, event.data.session.keyId, event.data.session.wrappedDek);
-        rawDek = unwrapped.raw;
-        key = unwrapped.key;
+      if (event.data.type === 'restore' || event.data.type === 'restore-delta') {
+        if (manifest.schema_version !== 2) throw new Error('Saved-device restore requires a schema v2 snapshot.');
+        if (event.data.snapshotKey) key = event.data.snapshotKey;
+        else {
+          const session = event.data.session;
+          if (!session || manifest.encryption.keyId !== session.keyId) throw new Error('The saved device key does not match this snapshot.');
+          const unwrapped = await unwrapSnapshotDek(session.key, session.keyId, session.wrappedDek);
+          rawDek = unwrapped.raw;
+          key = unwrapped.key;
+        }
         marks.unwrap = 0;
       } else {
         let start = performance.now();
@@ -44,6 +51,24 @@ self.addEventListener('message', (event: MessageEvent<UnlockRequest | RestoreReq
           if (!constantTimeEqual(encodeUtf8(canary), encodeUtf8('FundScope snapshot canary:v1'))) throw new Error('Incorrect passphrase or damaged snapshot.');
         }
       }
+      if (event.data.type === 'restore-delta') {
+        const { baseManifest } = event.data;
+        const deltaRef = manifest.latest_nav_delta;
+        if (!deltaRef || baseManifest.schema_version !== 2 || baseManifest.snapshot_id !== deltaRef.base_snapshot_id || baseManifest.encryption.keyId !== manifest.encryption.keyId) throw new Error('The encrypted delta does not match the cached snapshot.');
+        const baseCompressed = await decryptSnapshotFileV2(key, baseManifest.index.path, baseManifest.snapshot_id!, new Uint8Array(event.data.baseIndex));
+        const baseFunds = decodeFundColumns(await gunzipBytes(baseCompressed));
+        const deltaCompressed = await decryptSnapshotFileV2(key, deltaRef.file.path, manifest.snapshot_id!, new Uint8Array(event.data.delta));
+        const delta: unknown = JSON.parse(decodeUtf8(await gunzipBytes(deltaCompressed)));
+        const funds = applySnapshotDelta(baseFunds, delta, baseManifest.snapshot_id!, manifest.snapshot_id!, manifest.fund_count);
+        const indexPath = manifest.index.path;
+        const indexCompressed = await gzipBytes(encodeFundColumns(funds));
+        const encryptedIndex = await encryptSnapshotFileV2(key, indexPath, manifest.snapshot_id!, indexCompressed);
+        const encryptedBuffer = Uint8Array.from(encryptedIndex).buffer as ArrayBuffer;
+        self.postMessage({ type: 'success-delta', funds, key, encryptedIndex: encryptedBuffer }, { transfer: [encryptedBuffer] });
+        rawDek?.fill(0);
+        return;
+      }
+      const index = event.data.index;
       progress('Decrypting snapshot…');
       let start = performance.now();
       const compressed = manifest.schema_version === 2
