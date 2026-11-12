@@ -6,6 +6,7 @@ import { previousConflictFrom, reconcileClassification } from '../domain/taxonom
 import { normalizeCategory } from '../domain/taxonomy/categoryNormalize';
 import type { ParsedSchemeRow } from '../domain/taxonomy/navFileParser';
 import type { ParsedAmfiSchemeMasterRow } from '../domain/parse/amfiSchemeMaster';
+import { finishPerfMeasurement, startPerfMeasurement } from './perf';
 
 let dbPromise: Promise<Database> | null = null;
 const isTauri = () => {
@@ -34,6 +35,7 @@ async function browserDb(): Promise<IDBDatabase> {
   });
 }
 export async function initializeRepository():Promise<void>{
+  const perfStarted=startPerfMeasurement();
   try{
     if(isTauri()){
       const db=await openDb();
@@ -59,6 +61,8 @@ export async function initializeRepository():Promise<void>{
   }catch(e){
     console.error('Database initialization failed:',e);
     throw new Error(`Database initialization failed: ${e instanceof Error?e.message:String(e)}`);
+  }finally{
+    finishPerfMeasurement('initializeRepository',perfStarted);
   }
 }
 async function ensureTaxonomyColumns(db:Database):Promise<void>{
@@ -97,19 +101,22 @@ export async function saveBenchmarkSeries(series:StoredBenchmarkSeries):Promise<
   const db=await browserDb();const tx=db.transaction('benchmark_series','readwrite');tx.objectStore('benchmark_series').put(series);await new Promise<void>((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});
 }
 export async function getFunds():Promise<Fund[]>{
+  const readStarted=startPerfMeasurement();
   try{
     if(isTauri()){
-      const db=await openDb();const rows=await db.select<{payload:string}[]>('SELECT payload FROM schemes');
+      const db=await openDb();const selectStarted=startPerfMeasurement();const rows=await db.select<{payload:string}[]>('SELECT payload FROM schemes');finishPerfMeasurement('getFunds SQL select',selectStarted,`${rows.length.toLocaleString('en-IN')} rows`);
       console.log(`Loaded ${rows.length} funds from SQLite`);
-      return rows.map((row:{payload:string})=>normalizeFund(JSON.parse(row.payload) as Fund));
+      const normalizeStarted=startPerfMeasurement();const funds=rows.map((row:{payload:string})=>normalizeFund(JSON.parse(row.payload) as Fund));finishPerfMeasurement('getFunds JSON parse + normalize',normalizeStarted,`${funds.length.toLocaleString('en-IN')} rows`);return funds;
     }
     const db=await browserDb();const tx=db.transaction('funds','readonly');
-    const funds=(await requestResult(tx.objectStore('funds').getAll()) as Fund[]).map(normalizeFund);
+    const rows=await requestResult(tx.objectStore('funds').getAll()) as Fund[];finishPerfMeasurement('getFunds IndexedDB read',readStarted,`${rows.length.toLocaleString('en-IN')} rows`);const normalizeStarted=startPerfMeasurement();const funds=rows.map(normalizeFund);finishPerfMeasurement('getFunds normalize',normalizeStarted,`${funds.length.toLocaleString('en-IN')} rows`);
     console.log(`Loaded ${funds.length} funds from IndexedDB`);
     return funds;
   }catch(e){
     console.error('Failed to load funds:',e);
     throw new Error(`Failed to load funds: ${e instanceof Error?e.message:String(e)}`);
+  }finally{
+    finishPerfMeasurement('getFunds total',readStarted);
   }
 }
 export interface SchemeMasterRecord {schemeCode:number;name:string;amc:string;categoryRaw:string;headerRaw:string;structure:ParsedSchemeRow['structure'];plan:string|null;option:string|null;isinA:string|null;isinB:string|null;nav:number|null;navDate:number|null;amfiSchemeMaster?:ParsedAmfiSchemeMasterRow;assetClass:Fund['assetClass'];classRuleId:string;classStatus:NonNullable<Fund['classStatus']>;classDetail:Fund['classDetail'];taxonomyVersion:number;firstSeenAt:number;lastSeenAt:number}
@@ -159,7 +166,7 @@ export async function reconcileFundTaxonomy(funds:Fund[]):Promise<Fund[]>{
 }
 function safeParseClassDetail(raw:string):Fund['classDetail']{try{return JSON.parse(raw) as Fund['classDetail'];}catch{return undefined;}}
 export async function saveFunds(funds:Fund[],onProgress?:(saved:number,total:number)=>void):Promise<void>{
-  funds=funds.map(fund=>enforceClassificationMetricGate(normalizeFund(fund)));await recordTaxonomyObservations(funds);
+  const perfStarted=startPerfMeasurement();const initialCount=funds.length;const normalizeStarted=startPerfMeasurement();funds=funds.map(fund=>enforceClassificationMetricGate(normalizeFund(fund)));finishPerfMeasurement('saveFunds normalize + taxonomy gate',normalizeStarted,`${funds.length.toLocaleString('en-IN')} rows`);await recordTaxonomyObservations(funds);
   if(isTauri()){
     const db=await openDb();
     for(let start=0;start<funds.length;start+=SQLITE_WRITE_BATCH_SIZE){
@@ -177,6 +184,7 @@ export async function saveFunds(funds:Fund[],onProgress?:(saved:number,total:num
     for(const fund of funds)tx.objectStore('funds').put(fund);
     await new Promise<void>((resolve,reject)=>{tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);});
   }
+  finishPerfMeasurement('saveFunds total',perfStarted,`${initialCount.toLocaleString('en-IN')} rows`);
 }
 /** Replace the local catalogue with a verified snapshot while preserving user settings and audit stores. */
 export interface StoredNavHistory { code:number; snapshotId:string; points:NavPoint[]; loadedAt:number }

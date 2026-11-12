@@ -17,8 +17,10 @@ scope.onmessage = event => {
   const message = event.data;
   try {
     if (message.kind === 'load') {
-      engine = new ScreenerEngine(message.funds);
-      scope.postMessage({ kind: 'ready', id: message.id, size: engine.size, categoryTree: engine.categoryTree });
+      const started = performance.now();
+      const phaseTimings: Record<string, number> = {};
+      engine = new ScreenerEngine(message.funds, (phase, milliseconds) => { phaseTimings[phase] = milliseconds; });
+      scope.postMessage({ kind: 'ready', id: message.id, size: engine.size, categoryTree: engine.categoryTree, buildMs: performance.now() - started, phaseTimings });
       return;
     }
     if (!engine) throw new Error('The local screener index is not ready.');

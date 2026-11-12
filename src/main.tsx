@@ -16,6 +16,7 @@ import './ui/styles/responsive-workspace.css';
 import './ui/styles/interaction-fixes.css';
 import './ui/styles/classification.css';
 import './ui/styles/snapshot-gate.css';
+import './ui/styles/perf-hud.css';
 import './ui/styles/mobile-ux.css';
 import './ui/styles/applied-filters.css';
 import './ui/styles/scatter.css';

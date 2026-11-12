@@ -3,9 +3,10 @@ import type { ScreenerFilters } from '../domain/screener/filters';
 import type { ScoreFactor } from '../domain/scoring/engine';
 import type { ScatterQueryOptions, ScatterQueryResult } from '../domain/scatter/scatterQuery';
 import { ScreenerEngine, type EngineCategoryTree, type EngineQueryResult, type EngineSort } from './core';
+import { recordPerfMeasurement } from '../app/perf';
 
 type WorkerReply =
-  | { kind: 'ready'; id: number; size: number; categoryTree: EngineCategoryTree[] }
+  | { kind: 'ready'; id: number; size: number; categoryTree: EngineCategoryTree[]; buildMs?: number; phaseTimings?: Record<string, number> }
   | { kind: 'result'; id: number; result: EngineQueryResult }
   | { kind: 'scatter-result'; id: number; result: ScatterQueryResult }
   | { kind: 'error'; id: number; message: string };
@@ -54,13 +55,22 @@ export class ScreenerEngineClient {
     this.fundsRef = funds;
     const id = ++this.nextId;
     if (!this.worker) {
+      const started = performance.now();
       this.local = new ScreenerEngine(funds);
+      recordPerfMeasurement('screener index build (main thread)', performance.now() - started, `${funds.length.toLocaleString('en-IN')} funds`);
       this.loadPromise = Promise.resolve({ size: this.local.size, categoryTree: this.local.categoryTree });
       return this.loadPromise;
     }
     this.loadPromise = new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve: reply => reply.kind === 'ready' ? resolve({ size: reply.size, categoryTree: reply.categoryTree }) : reject(new Error('Unexpected screener worker response.')), reject });
+      this.pending.set(id, { resolve: reply => {
+        if (reply.kind !== 'ready') { reject(new Error('Unexpected screener worker response.')); return; }
+        if (reply.buildMs !== undefined) recordPerfMeasurement('screener index build (worker)', reply.buildMs, `${reply.size.toLocaleString('en-IN')} funds`);
+        for (const [phase, milliseconds] of Object.entries(reply.phaseTimings ?? {})) recordPerfMeasurement(`screener index · ${phase}`, milliseconds);
+        resolve({ size: reply.size, categoryTree: reply.categoryTree });
+      }, reject });
+      const started = performance.now();
       this.worker!.postMessage({ kind: 'load', id, funds });
+      recordPerfMeasurement('fund transfer to screener worker', performance.now() - started, `${funds.length.toLocaleString('en-IN')} funds · synchronous postMessage time`);
     });
     return this.loadPromise;
   }
@@ -68,12 +78,19 @@ export class ScreenerEngineClient {
   async query(filters: ScreenerFilters, sort: EngineSort, now = Date.now(), factors: ScoreFactor[] = []): Promise<{ id: number; result: EngineQueryResult }> {
     await this.loadPromise;
     const id = ++this.nextId;
+    const started = performance.now();
     if (!this.worker) {
       if (!this.local) throw new Error('The local screener index is not ready.');
-      return { id, result: this.local.query(filters, sort, now, factors) };
+      const result = this.local.query(filters, sort, now, factors);
+      recordPerfMeasurement('screener query round trip', performance.now() - started, `${result.indices.length.toLocaleString('en-IN')} matched funds`);
+      return { id, result };
     }
     return new Promise((resolve, reject) => {
-      this.pending.set(id, { resolve: reply => reply.kind === 'result' ? resolve({ id, result: reply.result }) : reject(new Error('Unexpected screener worker response.')), reject });
+      this.pending.set(id, { resolve: reply => {
+        if (reply.kind !== 'result') { reject(new Error('Unexpected screener worker response.')); return; }
+        recordPerfMeasurement('screener query round trip', performance.now() - started, `${reply.result.indices.length.toLocaleString('en-IN')} matched funds · worker round trip`);
+        resolve({ id, result: reply.result });
+      }, reject });
       this.worker!.postMessage({ kind: 'query', id, filters, sort, now, factors });
     });
   }
