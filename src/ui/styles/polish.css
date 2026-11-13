@@ -1,0 +1,81 @@
+:where(html, body, #root) {
+  min-width: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+:where(.app-shell, .snapshot-gate) :where(h1, h2, h3, h4, h5, h6) {
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.app-shell h1,
+.snapshot-gate h1 {
+  font-size: clamp(24px, 3vw, 30px);
+  line-height: 1.12;
+}
+
+:where(.app-shell, .snapshot-gate) :where(h2, h3) {
+  line-height: 1.25;
+}
+
+.app-shell :where(button, .button),
+.snapshot-gate :where(button, .button) {
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+}
+
+.app-shell :where(button, input, select, textarea, summary, a, [tabindex]):focus-visible,
+.snapshot-gate :where(button, input, select, textarea, summary, a, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.app-shell .button.primary,
+.snapshot-gate .button.primary {
+  color: #fff;
+}
+
+:root[data-theme='dark'] .app-shell .button.primary,
+:root[data-theme='dark'] .snapshot-gate .button.primary {
+  color: #080c13;
+}
+
+.app-shell :where(.button, .icon-button, .filter-card, .coverage-card, .health-detail, .settings-card) {
+  border-radius: var(--radius-control);
+}
+
+.app-shell .coverage-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
+.app-shell :where(.table-scroll, .filter-panel) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.app-shell .fund-table thead th {
+  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+}

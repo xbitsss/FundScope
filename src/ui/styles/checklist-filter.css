@@ -25,7 +25,7 @@
   border: 0;
   background: transparent;
   color: var(--accent);
-  font-size: 9px;
+  font-size:var(--fs-xs);
   padding: 2px 0;
   max-width: 65%;
   min-width: 0;
@@ -55,7 +55,7 @@
   padding: 3px 5px;
   background: var(--surface);
   color: var(--text);
-  font-size: 9px;
+  font-size:var(--fs-xs);
   transition: border-color .15s, background .15s;
 }
 
@@ -68,14 +68,14 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 10px;
+  font-size:var(--fs-xs);
   color: var(--text-muted);
   margin-top: 8px;
 }
 
 .checklist-summary .link-button {
   color: var(--accent);
-  font-size: 9px;
+  font-size:var(--fs-xs);
   padding: 2px 6px;
 }
 
@@ -125,7 +125,7 @@
   background: transparent;
   color: var(--accent);
   padding: 3px 4px;
-  font-size: 9px;
+  font-size:var(--fs-xs);
 }
 
 .checklist-actions button:disabled {
@@ -172,7 +172,7 @@
 
 .category-tree-group-heading {
   min-height: 30px;
-  font-size: 10px;
+  font-size:var(--fs-xs);
 }
 
 .category-tree-group-heading small,
@@ -212,7 +212,7 @@
   background: transparent;
   color: var(--text);
   padding: 7px 4px;
-  font-size: 10px;
+  font-size:var(--fs-xs);
   font-weight: 600;
 }
 
@@ -281,7 +281,7 @@
   border-radius: 4px;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 10px;
+  font-size:var(--fs-xs);
 }
 
 .checklist-item:hover {

@@ -10,7 +10,7 @@
 }
 
 .screener-heading .subtitle {
-  font-size: 10px;
+  font-size:var(--fs-xs);
 }
 
 .summary-strip {

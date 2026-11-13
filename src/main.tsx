@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './ui/App';
 import AppErrorBoundary from './ui/AppErrorBoundary';
 import WebSnapshotGate from './ui/WebSnapshotGate';
+import '@fontsource-variable/inter';
 import './ui/styles/tokens.css';
 import './ui/styles/table-sticky.css';
 import './ui/styles/table-scroll.css';
@@ -20,6 +21,7 @@ import './ui/styles/perf-hud.css';
 import './ui/styles/mobile-ux.css';
 import './ui/styles/applied-filters.css';
 import './ui/styles/scatter.css';
+import './ui/styles/polish.css';
 
 const app = import.meta.env.MODE === 'web' ? <WebSnapshotGate /> : <App />;
 if (import.meta.env.MODE === 'web' && 'serviceWorker' in navigator) {
