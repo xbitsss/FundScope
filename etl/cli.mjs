@@ -18,6 +18,7 @@ import { applySebiHoldingHeuristics } from '../src/domain/disclosures/sebiHeuris
 import { benchmarkConfig } from '../src/config/benchmarks.ts';
 import { decodeUtf8, decryptSnapshotFile, encodeUtf8, gunzipBytes, gzipBytes, encryptSnapshotFile, encryptSnapshotFileV2, deriveSnapshotKey, generateSnapshotDek, importSnapshotDek, unwrapSnapshotDek, wrapSnapshotDek, randomBytes, toBase64, sha256Hex } from '../src/adapters/crypto/snapshotCrypto.ts';
 import { nextRetryAt, orderHistoryQueue } from './historyQueue.mjs';
+import { assessHistoryCoverage } from './historyQuality.mjs';
 import { isPassphraseStrong } from '../scripts/passphrase-policy.mjs';
 import { encodeFundColumns, extractFundDetail } from '../src/adapters/snapshot/columnar.ts';
 import { buildSnapshotDelta } from '../src/adapters/snapshot/delta.ts';
@@ -194,9 +195,9 @@ function mergeCatalog(previous, incoming) {
   });
 }
 
-async function fetchHistory(code) {
+async function fetchHistory(code, expectedIsins = []) {
   const response = await request(`https://api.mfapi.in/mf/${code}`, {}, `MFapi history ${code}`);
-  return parseMfapiHistory(await response.json(), code);
+  return parseMfapiHistory(await response.json(), code, expectedIsins);
 }
 
 function parsePeriodEnd(period) {
@@ -564,7 +565,6 @@ async function main() {
 
   await pullDatabase();
   const database = new NodeSqliteRepository(dbPath).initialize();
-  let qualityFailure = null;
   try {
     let funds = database.getFunds();
     const baseFunds = funds;
@@ -605,7 +605,8 @@ async function main() {
     await mapWithConcurrency(todo, env.HTTP_CONCURRENCY, async (fund) => {
       if ((Date.now() - runStarted) > env.ETL_TIME_BUDGET_MINUTES * 60_000) return;
       try {
-        const result = await fetchHistory(fund.code);
+        const result = await fetchHistory(fund.code, [fund.isinGrowth, fund.isinReinvestment, fund.schemeMaster?.isinGrowth, fund.schemeMaster?.isinReinvestment]);
+        if (result.schemeCode !== fund.code) logger(`MFapi scheme-code remap verified by ISIN: AMFI ${fund.code} → MFapi ${result.schemeCode}.`);
         const latestNav = fund.history.at(-1);
         const historyByDate = new Map((fund.history ?? []).map((point) => [point.date, point.nav]));
         for (const point of result.history) historyByDate.set(point.date, point.nav);
@@ -639,8 +640,10 @@ async function main() {
     });
     funds = funds.map((fund) => updates.get(fund.code) ?? fund);
     if (updates.size) database.saveFunds([...updates.values()]);
-    logger(`History batch complete: ${updates.size.toLocaleString('en-IN')} loaded, ${failed.toLocaleString('en-IN')} failed, ${funds.filter((fund) => fund.history?.length).length.toLocaleString('en-IN')} total schemes with NAV history.`);
-    if ((todo.length && updates.size === 0) || (todo.length && failed / todo.length > 0.2)) qualityFailure = `History coverage quality gate failed: ${failed}/${todo.length} attempted fetches failed.`;
+    const historyCoverage = assessHistoryCoverage(funds);
+    logger(`History batch complete: ${updates.size.toLocaleString('en-IN')} processed (${failed.toLocaleString('en-IN')} fetches failed); ${historyCoverage.withHistory.toLocaleString('en-IN')} / ${historyCoverage.total.toLocaleString('en-IN')} schemes retain NAV history.`);
+    logger(historyCoverage.message);
+    if (!historyCoverage.passes) fail(`History coverage quality gate failed: ${historyCoverage.message} ${historyCoverage.missing.toLocaleString('en-IN')} schemes have no saved NAV history.`);
 
     let aumMessage = 'AAUM refresh unavailable'; let terMessage = 'TER refresh unavailable';
     try { const aum = await ingestAum(funds); funds = aum.funds; aumMessage = `${aum.period} · ${aum.records.toLocaleString('en-IN')} scheme AAUM values`; logger(`AMFI AAUM: ${aumMessage}.`); }
@@ -666,7 +669,6 @@ async function main() {
     await encryptDatabase();
     await publishRelease();
     logger(`Refresh finished in ${Math.round((Date.now() - runStarted) / 1000)} seconds.`);
-    if (qualityFailure) fail(qualityFailure);
   } finally {
     database.close();
   }

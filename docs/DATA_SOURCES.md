@@ -69,6 +69,12 @@ The read-only discovery run is recorded in [classification-discovery-c0.md](clas
 - The browser keeps loaded NAV series in IndexedDB with a snapshot ID and an in-memory cache. A new snapshot invalidates the old series; a reload on the same snapshot preserves them.
 - Missing references are reported as `not in snapshot yet`; integrity/decryption failures are reported separately and are retryable. The browser does not calculate replacement metrics from loaded history, so ETL metrics and their reason codes remain authoritative.
 
+## MFapi history identity and refresh quality gate (13 November 2026)
+
+MFapi history responses are accepted for the requested AMFI scheme code. If MFapi returns a different numeric code, the ETL accepts the response only when an exact growth or reinvestment ISIN matches the AMFI NAVAll/Scheme Master identity. A code mismatch without an exact ISIN match is rejected with both returned and expected identity details; the NAV series is not attached by name similarity.
+
+The refresh quality gate measures the proportion of the current catalog that retains saved NAV history, rather than the failure fraction of the small retry batch. It requires at least 95% retained history coverage. This allows the public catalog and other data to refresh when a few codes are unresolved, while still stopping publication when the catalog-wide history coverage drops below the floor. Per-scheme failed/pending coverage remains in the encrypted manifest for diagnosis. An AMFI Scheme Master parse/join failure continues to use the documented NAVAll classification fallback and is logged separately.
+
 ## Daily NAV refresh timing (13 November 2026)
 
 The GitHub Actions schedule runs at 06:45, 18:45, and 23:30 India time (`01:15`, `13:15`, and `18:00` UTC). The late run gives AMFI's NAVAll refresh a 30-minute buffer after SEBI's general 11:00 PM same-business-day NAV disclosure limit. SEBI lists next-business-day exceptions for schemes with ETCD exposure, FoFs, specified overseas investments, and delayed underlying valuations, so the late run cannot guarantee every scheme's NAV is present that night. The Actions run remains a full refresh; compared with two daily runs, three scheduled runs increase scheduled source polling by 50%. There is no change to source selection or history-fetch policy. See the [SEBI March 2026 Mutual Funds Master Circular](https://www.sebi.gov.in/sebi_data/attachdocs/mar-2026/1774024028162.pdf), paragraph 9.3.4.

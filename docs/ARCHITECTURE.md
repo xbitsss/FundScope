@@ -12,6 +12,8 @@ History reads use a bounded 64-entry in-memory LRU before the persisted device h
 
 Growth charts prepare normalized histories, the shared date axis, extrema, and SVG paths in the existing metrics Web Worker. Pointer and keyboard handlers only select the nearest date and render the active marker/readout on the UI thread.
 
+The ETL history gate measures retained NAV-history coverage across the current catalog (minimum 95%), not the failure percentage of a small retry batch. It stops before snapshot generation/publication when coverage is below the floor. MFapi code remaps are accepted only when the response's growth or reinvestment ISIN exactly matches the AMFI fund; other code mismatches remain failed and are reported in manifest coverage.
+
 ## Local desktop app
 
 Tauri keeps SQLite as its local data store. Migration 0004 creates an indexed `fund_list` table for list/facet values, `fund_metrics` for typed nullable metric values and reason codes, `fund_detail` for lazy provenance JSON, and an index on the existing `(scheme_code,date)` NAV table. `schema_meta.normalized_fund_storage_v4` records completion. The migration copies the old JSON payload table to `schemes_typed_v4_backup`, projects each saved fund into typed rows inside a SQLite transaction, checks the migrated row count, then removes the duplicate live payload table. A failed migration rolls back and keeps the payload table; a successful migration keeps the backup for recovery.
