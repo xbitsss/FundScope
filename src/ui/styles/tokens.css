@@ -3,7 +3,7 @@
 :root {
   color-scheme: light;
   --font-sans:'Inter Variable',Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --fs-xs:11px; --fs-sm:12px; --fs-base:14px; --fs-lg:16px; --fs-xl:20px;
+  --fs-xs:11px; --fs-sm:12px; --fs-base:14px; --fs-lg:16px; --fs-xl:20px; --fs-h1:clamp(24px,3vw,30px);
   --radius-control:6px; --radius-card:8px; --radius-sheet:12px;
   --shadow-sm:0 2px 8px rgb(16 24 40 / 8%); --shadow-md:0 10px 28px rgb(16 24 40 / 12%); --shadow-lg:0 18px 48px rgb(16 24 40 / 16%);
   --ease-out:cubic-bezier(.2,.8,.2,1); --ease-in:cubic-bezier(.4,0,1,1); --ease-sheet:cubic-bezier(.22,1,.36,1);

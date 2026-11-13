@@ -20,7 +20,7 @@ body {
 
 .app-shell h1,
 .snapshot-gate h1 {
-  font-size: clamp(24px, 3vw, 30px);
+  font-size: var(--fs-h1);
   line-height: 1.12;
 }
 
@@ -70,6 +70,52 @@ body {
   background: color-mix(in srgb, var(--surface-2) 88%, transparent);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+}
+
+.app-shell .skeleton-data-row {
+  height: 36px;
+}
+
+.app-shell .skeleton-data-row > td {
+  height: inherit;
+}
+
+.app-shell .fund-table:not(.compact) .skeleton-data-row {
+  height: 48px;
+}
+
+.app-shell .skeleton {
+  display: block;
+  border-radius: var(--radius-control);
+  background: linear-gradient(100deg, var(--surface-2) 20%, color-mix(in srgb, var(--border) 72%, var(--surface)) 45%, var(--surface-2) 70%);
+  background-size: 220% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+.app-shell .skeleton-check { width: 14px; height: 14px; }
+.app-shell .skeleton-name { width: min(220px, 72%); height: 12px; }
+.app-shell .skeleton-subtitle { width: min(150px, 52%); height: 11px; margin-top: 6px; }
+.app-shell .skeleton-value { width: 46px; height: 11px; margin-left: auto; }
+
+.app-shell .skeleton-mobile-card {
+  grid-template-columns: 16px minmax(0, 1fr);
+  grid-template-rows: repeat(3, 12px);
+  align-items: center;
+  min-height: 72px;
+  cursor: default;
+}
+
+.app-shell .skeleton-mobile-card .skeleton-check { grid-column: 1; grid-row: 1 / span 3; }
+.app-shell .skeleton-mobile-name { grid-column: 2; grid-row: 1; width: min(72%, 240px); height: 12px; }
+.app-shell .skeleton-mobile-meta { grid-column: 2; grid-row: 2; width: min(54%, 170px); height: 11px; }
+.app-shell .skeleton-mobile-value { grid-column: 2; grid-row: 3; width: min(40%, 130px); height: 11px; }
+
+.app-shell :where(td, .mobile-card-metrics b).cell-up {
+  animation: fundscope-metric-up 900ms var(--ease-out) both;
+}
+
+.app-shell :where(td, .mobile-card-metrics b).cell-down {
+  animation: fundscope-metric-down 900ms var(--ease-out) both;
 }
 
 .app-shell :where(button, a, .nav-item, .icon-button, .brand-icon, .nav-icon) {
@@ -149,6 +195,16 @@ body {
 @keyframes fundscope-route-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fundscope-metric-up {
+  from { background-color: color-mix(in srgb, var(--positive) 28%, transparent); }
+  to { background-color: transparent; }
+}
+
+@keyframes fundscope-metric-down {
+  from { background-color: color-mix(in srgb, var(--negative) 25%, transparent); }
+  to { background-color: transparent; }
 }
 
 @media (max-width: 767px) {
