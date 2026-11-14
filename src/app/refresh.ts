@@ -8,11 +8,12 @@ import { previousConflictFrom, reconcileClassification } from '../domain/taxonom
 import type { Fund, NavPoint } from '../domain/types';
 import { getFunds, reconcileFundTaxonomy, saveAmfiSchemeMasterRows, saveFunds, saveSchemeMasterRows, setSourceStatus } from './persistence';
 import { AbortableRequestPool, historyLruCache } from './historyCache';
+import { routePublicSourceUrl } from './sourceUrl';
 
 const apiNavSchema=z.object({meta:z.object({fund_house:z.string().optional(),scheme_type:z.string().optional(),scheme_category:z.string().optional(),scheme_code:z.number(),scheme_name:z.string()}).passthrough(),data:z.array(z.object({date:z.string(),nav:z.string()})),status:z.string()});
 const monthMap:Record<string,number>={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
 function parseMfapiDate(raw:string):number|null{const m=/^(\d{2})-(\d{2})-(\d{4})$/.exec(raw);if(!m)return null;return Math.floor(Date.UTC(Number(m[3]),Number(m[2])-1,Number(m[1]))/86400000);}
-const safeFetch=(url:string,init?:RequestInit)=>('__TAURI_INTERNALS__' in window?tauriFetch(url,init):fetch(url,init));
+const safeFetch=(url:string,init?:RequestInit)=>('__TAURI_INTERNALS__' in window?tauriFetch(url,init):fetch(routePublicSourceUrl(url,import.meta.env.DEV,false),init));
 async function fetchWithTimeout(url:string,init:RequestInit|undefined,timeoutMs:number):Promise<Response>{
   const controller=new AbortController();const callerSignal=init?.signal;const abortFromCaller=()=>controller.abort(callerSignal?.reason);
   if(callerSignal?.aborted)abortFromCaller();else callerSignal?.addEventListener('abort',abortFromCaller,{once:true});

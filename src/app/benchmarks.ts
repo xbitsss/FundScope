@@ -5,10 +5,11 @@ import type { BenchmarkSeriesById } from '../domain/benchmarks/types';
 import { getBenchmarkSeries, saveBenchmarkSeries } from './persistence';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import { alignByDate } from '../domain/stats/align';
+import { routePublicSourceUrl } from './sourceUrl';
 
 const apiSchema=z.object({meta:z.object({scheme_code:z.number(),scheme_name:z.string()}).passthrough(),data:z.array(z.object({date:z.string(),nav:z.string()})),status:z.string()});
 const epochDay=(value:string):number|null=>{const match=/^(\d{2})-(\d{2})-(\d{4})$/.exec(value);return match?Math.floor(Date.UTC(Number(match[3]),Number(match[2])-1,Number(match[1]))/86_400_000):null;};
-const fetchSource=(url:string)=>('__TAURI_INTERNALS__' in window?tauriFetch(url,{cache:'no-store'}):fetch(url,{cache:'no-store'}));
+const fetchSource=(url:string)=>('__TAURI_INTERNALS__' in window?tauriFetch(url,{cache:'no-store'}):fetch(routePublicSourceUrl(url,import.meta.env.DEV,false),{cache:'no-store'}));
 
 async function historyForProxy(code:number,name:string):Promise<{history:NavPoint[];schemeName:string;fetchedAt:number}>{
   const cached=await getBenchmarkSeries(code);if(cached?.history.length&&Date.now()-cached.fetchedAt<86_400_000)return {history:cached.history,schemeName:cached.schemeName,fetchedAt:cached.fetchedAt};

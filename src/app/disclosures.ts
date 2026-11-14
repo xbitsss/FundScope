@@ -5,8 +5,9 @@ import { recordSourceSchemeMapping } from './persistence';
 import { previousConflictFrom, reconcileClassification } from '../domain/taxonomy/consensus';
 import { TAXONOMY_VERSION } from '../domain/taxonomy/assetClass';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
+import { routePublicSourceUrl } from './sourceUrl';
 
-const safeFetch=(url:string,init?:RequestInit)=>url.startsWith('/')?fetch(url,init):('__TAURI_INTERNALS__' in window?tauriFetch(url,init):fetch(url,init));
+const safeFetch=(url:string,init?:RequestInit)=>url.startsWith('/')?fetch(url,init):('__TAURI_INTERNALS__' in window?tauriFetch(url,init):fetch(routePublicSourceUrl(url,import.meta.env.DEV,false),init));
 const classifiedFund=(fund:Fund,consensus:ReturnType<typeof reconcileClassification>):Fund=>({...fund,assetClass:consensus.assetClass,classRuleId:consensus.ruleId,taxonomyVersion:TAXONOMY_VERSION,classStatus:consensus.status,classDetail:consensus.detail,subCategory:consensus.subCategory,group:consensus.group,management:consensus.management,riskBand:consensus.riskBand,philosophy:consensus.philosophy,speciality:consensus.speciality,lifecycle:consensus.lifecycle,lifecycleReason:consensus.lifecycleReason,classificationReason:consensus.reason,classificationProvenance:consensus.provenance});
 
 const AMFI_MONTHLY_URL='https://www.amfiindia.com/research-information/amfi-monthly';
