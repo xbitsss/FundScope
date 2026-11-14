@@ -17,7 +17,7 @@ const verifiedDefinitions: MetricDefinition[] = [
     ['semi_deviation','Semi-deviation','Risk','lower','Annualized root-mean-square of negative daily returns.'],
     ['tail_risk_ratio','Tail risk ratio','Risk','higher','Average gain in the best tail divided by the absolute average loss in the worst tail.'],
     ['gain_loss_ratio','Gain/loss ratio','Risk-adjusted','higher','Average positive daily return divided by the absolute average negative daily return.'],
-    ['sharpe','Sharpe','Risk-adjusted','higher','Annualized excess return divided by annualized standard deviation. Uses the configured risk-free rate.'],
+    ['sharpe','Sharpe','Risk-adjusted','higher','Annualized excess return divided by annualized standard deviation. Uses the industry benchmark risk-free rate (FBIL Overnight MIBOR, 5.55% p.a.).'],
     ['sortino','Sortino','Risk-adjusted','higher','Annualized excess return divided by annualized downside deviation.'],
     ['omega','Omega','Risk-adjusted','higher','Probability-weighted gains above the hurdle divided by losses below it.'],
     ['calmar','Calmar','Risk-adjusted','higher','Annualized return divided by absolute maximum drawdown.'],

@@ -1,5 +1,5 @@
 import type { Fund, NavPoint } from '../domain/types';
-import { applyLocalMetricBundle, computeMetricBundle } from '../domain/metrics/compute';
+import { applyLocalMetricBundle, computeMetricBundle, DEFAULT_RISK_FREE_RATE_PERCENT } from '../domain/metrics/compute';
 import { applySebiHoldingHeuristics } from '../domain/disclosures/sebiHeuristics';
 import { markMissingDisclosureMetrics } from '../adapters/amfi_disclosures';
 import { computeFundsInWorker } from '../domain/metrics/workerClient';
@@ -114,7 +114,7 @@ function applyAnalyticalBenchmarkMetrics(fund: Fund, riskFreeRate: number): Fund
 }
 
 /** Synchronously ensures all local NAV and SEBI heuristic metrics are populated when history is available. */
-export function ensureFundMetricsComputed(fund: Fund, riskWindow = 3, riskFreeRate = 6.5): Fund {
+export function ensureFundMetricsComputed(fund: Fund, riskWindow = 3, riskFreeRate = DEFAULT_RISK_FREE_RATE_PERCENT): Fund {
   let current = applySebiHoldingHeuristics(markMissingDisclosureMetrics(fund));
   if (current.history.length >= 2 && !ALL_NAV_COMPUTED_METRIC_IDS.every(id => hasMetricOrReason(current, id))) {
     const bundle = computeMetricBundle(current, riskWindow, riskFreeRate);

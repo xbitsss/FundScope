@@ -26,7 +26,7 @@ const envSchema = z.object({
   GH_TOKEN: z.string().optional(),
   DATA_RELEASE_TAG: z.string().default('data-latest'),
   DATA_DIR: z.string().default('.data'),
-  RISK_FREE_RATE: numberValue(6.5, 0, 100),
+  RISK_FREE_RATE: numberValue(5.55, 0, 100),
   MAX_SITE_SIZE_MB: numberValue(950, 1, 1024),
   MAX_DB_SIZE_MB: numberValue(1800, 1, 2048),
   ETL_TIME_BUDGET_MINUTES: numberValue(45, 1, 330),

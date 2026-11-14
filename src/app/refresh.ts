@@ -9,6 +9,7 @@ import type { Fund, NavPoint } from '../domain/types';
 import { getFunds, reconcileFundTaxonomy, saveAmfiSchemeMasterRows, saveFunds, saveSchemeMasterRows, setSourceStatus } from './persistence';
 import { AbortableRequestPool, historyLruCache } from './historyCache';
 import { routePublicSourceUrl } from './sourceUrl';
+import { DEFAULT_RISK_FREE_RATE_PERCENT } from '../domain/metrics/compute';
 
 const apiNavSchema=z.object({meta:z.object({fund_house:z.string().optional(),scheme_type:z.string().optional(),scheme_category:z.string().optional(),scheme_code:z.number(),scheme_name:z.string()}).passthrough(),data:z.array(z.object({date:z.string(),nav:z.string()})),status:z.string()});
 const monthMap:Record<string,number>={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
@@ -27,7 +28,7 @@ function errorMessage(error:unknown):string{
   if(typeof error==='string')return error;
   try{return JSON.stringify(error);}catch{return 'Unknown network error';}
 }
-export async function refreshCatalog(riskWindow=3,riskFreeRate=6.5,onStage?:(stage:string)=>void):Promise<{funds:Fund[],asOf:number}>{
+export async function refreshCatalog(riskWindow=3,riskFreeRate=DEFAULT_RISK_FREE_RATE_PERCENT,onStage?:(stage:string)=>void):Promise<{funds:Fund[],asOf:number}>{
   try{
     onStage?.('Downloading the AMFI catalog…');
     const response=await fetchWithTimeout('https://portal.amfiindia.com/spages/NAVAll.txt',undefined,20_000);

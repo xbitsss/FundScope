@@ -1,10 +1,11 @@
 import type { Fund, MetricReason, NavPoint } from '../types';
 import { computeNavAnalytics } from './analytics';
-import { ANALYTICS_DEFAULTS } from './conventions';
+import { ANALYTICS_DEFAULTS, INDUSTRY_RISK_FREE_BENCHMARK } from './conventions';
 
 export type MetricBundle = { metrics: Record<string, number | null>; reasons: Record<string, MetricReason> };
-export const DEFAULT_RISK_FREE_RATE_PERCENT = ANALYTICS_DEFAULTS.annualRiskFreeRate * 100;
+export const DEFAULT_RISK_FREE_RATE_PERCENT = Number((ANALYTICS_DEFAULTS.annualRiskFreeRate * 100).toFixed(2));
 export const MAX_RISK_FREE_RATE_PERCENT = ANALYTICS_DEFAULTS.maximumRiskFreeRatePercent;
+export { INDUSTRY_RISK_FREE_BENCHMARK };
 
 export function applyLocalMetricBundle(fund: Fund, bundle: MetricBundle): Fund {
   const metrics = { ...fund.metrics };
