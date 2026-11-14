@@ -29,7 +29,7 @@ const SQLITE_WRITE_BATCH_SIZE = 200;
 let normalizedStoreReady=false;
 let normalizedMigrationPromise:Promise<boolean>|null=null;
 const fundIndexBuffers=new WeakMap<Fund[],ArrayBuffer>();
-export function getFundIndexBuffer(funds:Fund[]):ArrayBuffer|undefined{return fundIndexBuffers.get(funds);}
+export function getFundIndexBuffer(funds:Fund[]):ArrayBuffer|undefined{const buf=fundIndexBuffers.get(funds);if(buf&&buf.byteLength===0){fundIndexBuffers.delete(funds);return undefined;}return buf;}
 export async function waitForNormalizedStorage():Promise<boolean>{if(!isTauri())return true;if(normalizedStoreReady)return true;return normalizedMigrationPromise?normalizedMigrationPromise:false;}
 const requestResult = <T>(request: IDBRequest<T>) => new Promise<T>((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
 async function browserDb(): Promise<IDBDatabase> {

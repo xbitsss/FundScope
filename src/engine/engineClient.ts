@@ -94,9 +94,10 @@ export class ScreenerEngineClient {
         resolve({ size: reply.size, categoryTree: reply.categoryTree });
       }, reject });
       const started = performance.now();
-      if(indexBuffer)this.worker!.postMessage({ kind: 'load', id, indexBuffer }, [indexBuffer]);
+      const validBuffer = indexBuffer && indexBuffer.byteLength > 0 ? indexBuffer : undefined;
+      if(validBuffer)this.worker!.postMessage({ kind: 'load', id, indexBuffer: validBuffer }, [validBuffer]);
       else this.worker!.postMessage({ kind: 'load', id, funds });
-      recordPerfMeasurement('fund transfer to screener worker', performance.now() - started, `${funds.length.toLocaleString('en-IN')} funds · ${indexBuffer?'transferred columnar buffer':'structured-clone postMessage'} time`);
+      recordPerfMeasurement('fund transfer to screener worker', performance.now() - started, `${funds.length.toLocaleString('en-IN')} funds · ${validBuffer?'transferred columnar buffer':'structured-clone postMessage'} time`);
     });
     return this.loadPromise;
   }

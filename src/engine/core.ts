@@ -248,7 +248,7 @@ export class ScreenerEngine {
   }
   private computeScores(factors: ScoreFactor[], sig: number): Float32Array {
     const cached = this.scoreCache.get(sig);
-    if (cached) return cached;
+    if (cached && cached.buffer.byteLength > 0) return cached.slice();
     const scores = new Float32Array(this.size).fill(Number.NaN);
     const used = factors.reduce((total, factor) => total + Math.max(0, factor.weight), 0);
     if (!used) return scores;
@@ -272,7 +272,7 @@ export class ScreenerEngine {
           if (Number.isFinite(val)) scores[i] = val;
         }
         this.scoreCache.set(sig, scores);
-        return scores;
+        return scores.slice();
       }
     }
 
@@ -284,7 +284,7 @@ export class ScreenerEngine {
       }
     }
     this.scoreCache.set(sig, scores);
-    return scores;
+    return scores.slice();
   }
 }
 
