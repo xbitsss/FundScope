@@ -13,6 +13,18 @@ export interface RankFundsOptions {
   peerGroup?: PeerGroupMode;
   useSavedScores?: boolean;
   robustMagnitude?: boolean;
+  includeContributions?: boolean;
+}
+
+export interface ScoreModelPreset {
+  id: string;
+  name: string;
+  description: string;
+  peerGroup: PeerGroupMode;
+  factors: ScoreFactor[];
+  builtIn?: boolean;
+  savedAt: number;
+  dataAsOf?: number | null;
 }
 
 export const SCORE_METRIC_ID = 'composite_score';
@@ -27,6 +39,63 @@ export const DEFAULT_SCORE_FACTORS: ScoreFactor[] = [
   { id: 'category_std_dev', weight: 10, direction: 'lower' },
   { id: 'cagr_5y', weight: 10, direction: 'higher' },
   { id: 'cagr_10y', weight: 5, direction: 'higher' },
+];
+
+export const PRESET_SCORE_MODELS: ScoreModelPreset[] = [
+  {
+    id: 'jpmc-multi-factor',
+    name: 'JPMC multi-factor model',
+    description: 'Balanced institutional model combining 3Y/5Y alpha, rolling return consistency, Sharpe, and volatility control.',
+    peerGroup: 'subcategory',
+    factors: DEFAULT_SCORE_FACTORS,
+    builtIn: true,
+    savedAt: 0,
+  },
+  {
+    id: 'risk-adjusted-compounder',
+    name: 'Risk-adjusted compounder',
+    description: 'Emphasizes Sharpe, Sortino, Calmar, and 3Y rolling consistency with downside protection.',
+    peerGroup: 'subcategory',
+    factors: [
+      { id: 'sharpe', weight: 25, direction: 'higher' },
+      { id: 'sortino', weight: 25, direction: 'higher' },
+      { id: 'rolling_3y_consistency', weight: 20, direction: 'higher' },
+      { id: 'calmar', weight: 15, direction: 'higher' },
+      { id: 'max_drawdown', weight: 15, direction: 'higher' },
+    ],
+    builtIn: true,
+    savedAt: 0,
+  },
+  {
+    id: 'alpha-momentum-leader',
+    name: 'Alpha & benchmark leader',
+    description: 'Targets high information ratio, Jensen alpha, 3Y CAGR, and consistent sub-category outperformance.',
+    peerGroup: 'subcategory',
+    factors: [
+      { id: 'jensen_alpha', weight: 25, direction: 'higher' },
+      { id: 'information_ratio', weight: 25, direction: 'higher' },
+      { id: 'return_vs_subcategory_3y', weight: 20, direction: 'higher' },
+      { id: 'cagr_3y', weight: 15, direction: 'higher' },
+      { id: 'benchmark_outperformance_ratio', weight: 15, direction: 'higher' },
+    ],
+    builtIn: true,
+    savedAt: 0,
+  },
+  {
+    id: 'low-vol-defender',
+    name: 'Low-volatility defender',
+    description: 'Prioritizes low standard deviation, shallow drawdowns, low downside capture, and low expense ratio.',
+    peerGroup: 'subcategory',
+    factors: [
+      { id: 'std_dev', weight: 30, direction: 'lower' },
+      { id: 'max_drawdown', weight: 25, direction: 'higher' },
+      { id: 'downside_capture', weight: 20, direction: 'lower' },
+      { id: 'sharpe', weight: 15, direction: 'higher' },
+      { id: 'ter_pct', weight: 10, direction: 'lower' },
+    ],
+    builtIn: true,
+    savedAt: 0,
+  },
 ];
 
 const CATEGORY_MACRO_FACTORS = new Set(['category_std_dev', 'category_pe_ratio', 'category_ytm']);
@@ -95,44 +164,75 @@ function computeCohortFactorMap(cohort: Fund[], factor: ScoreFactor, robustMagni
   return map;
 }
 
+interface PrebuiltCohorts {
+  byAsset: Map<string, Fund[]>;
+  byCohort: Map<string, Fund[]>;
+  assetKeys: string[];
+  cohortKeys: string[];
+}
+
+function buildCohorts(funds: readonly Fund[], peerGroup: PeerGroupMode): PrebuiltCohorts {
+  const byAsset = new Map<string, Fund[]>();
+  const byCohort = new Map<string, Fund[]>();
+  const assetKeys = new Array<string>(funds.length);
+  const cohortKeys = new Array<string>(funds.length);
+  for (let i = 0; i < funds.length; i++) {
+    const fund = funds[i]!;
+    const assetKey = fund.assetClass || 'other';
+    assetKeys[i] = assetKey;
+    let assetList = byAsset.get(assetKey);
+    if (!assetList) {
+      assetList = [];
+      byAsset.set(assetKey, assetList);
+    }
+    assetList.push(fund);
+
+    const cohortKey = peerGroup === 'category_plan'
+      ? `${assetKey}\u0000${fund.subCategory || ''}\u0000${fund.plan || ''}`
+      : `${assetKey}\u0000${fund.subCategory || ''}`;
+    cohortKeys[i] = cohortKey;
+    let cohortList = byCohort.get(cohortKey);
+    if (!cohortList) {
+      cohortList = [];
+      byCohort.set(cohortKey, cohortList);
+    }
+    cohortList.push(fund);
+  }
+  return { byAsset, byCohort, assetKeys, cohortKeys };
+}
+
 function buildFactorPercentileMap(
   funds: Fund[],
   factor: ScoreFactor,
   peerGroup: PeerGroupMode,
   robustMagnitude: boolean,
+  cohorts?: PrebuiltCohorts,
 ): Map<number, number> {
-  const universeMap = computeCohortFactorMap(funds, factor, robustMagnitude);
   if (peerGroup === 'filtered' || peerGroup === 'universe' || funds.length < 6) {
+    return computeCohortFactorMap(funds, factor, robustMagnitude);
+  }
+
+  const { byAsset, byCohort, assetKeys, cohortKeys } = cohorts ?? buildCohorts(funds, peerGroup);
+  let universeMap: Map<number, number> | null = null;
+  const getUniverseMap = () => {
+    if (!universeMap) universeMap = computeCohortFactorMap(funds, factor, robustMagnitude);
     return universeMap;
-  }
-
-  const byAsset = new Map<string, Fund[]>();
-  const byCohort = new Map<string, Fund[]>();
-  for (const fund of funds) {
-    const assetKey = fund.assetClass || 'other';
-    const assetList = byAsset.get(assetKey) ?? [];
-    assetList.push(fund);
-    byAsset.set(assetKey, assetList);
-
-    const cohortKey = peerGroup === 'category_plan'
-      ? `${assetKey}\u0000${fund.subCategory || ''}\u0000${fund.plan || ''}`
-      : `${assetKey}\u0000${fund.subCategory || ''}`;
-    const cohortList = byCohort.get(cohortKey) ?? [];
-    cohortList.push(fund);
-    byCohort.set(cohortKey, cohortList);
-  }
-
-  const assetMaps = new Map<string, Map<number, number>>();
-  for (const [assetKey, list] of byAsset) {
-    const map = computeCohortFactorMap(list, factor, robustMagnitude);
-    if (map.size >= 3) assetMaps.set(assetKey, map);
-  }
+  };
+  const assetMaps = new Map<string, Map<number, number> | null>();
+  const getAssetMap = (assetKey: string): Map<number, number> | undefined => {
+    if (!assetMaps.has(assetKey)) {
+      const list = byAsset.get(assetKey);
+      const map = list ? computeCohortFactorMap(list, factor, robustMagnitude) : null;
+      assetMaps.set(assetKey, map && map.size >= 3 ? map : null);
+    }
+    return assetMaps.get(assetKey) ?? undefined;
+  };
 
   if (CATEGORY_MACRO_FACTORS.has(factor.id)) {
     const result = new Map<number, number>();
-    for (const fund of funds) {
-      const assetMap = assetMaps.get(fund.assetClass || 'other');
-      const val = assetMap?.get(fund.code) ?? universeMap.get(fund.code);
+    for (let i = 0; i < funds.length; i++) {
+      const fund = funds[i]!;
+      const val = getAssetMap(assetKeys[i]!)?.get(fund.code) ?? getUniverseMap().get(fund.code);
       if (val !== undefined) result.set(fund.code, val);
     }
     return result;
@@ -140,20 +240,24 @@ function buildFactorPercentileMap(
 
   const cohortMaps = new Map<string, Map<number, number>>();
   for (const [cohortKey, list] of byCohort) {
+    if (list.length < 3) continue;
     const map = computeCohortFactorMap(list, factor, robustMagnitude);
     if (map.size >= 3) cohortMaps.set(cohortKey, map);
   }
 
   const result = new Map<number, number>();
-  for (const fund of funds) {
-    const assetKey = fund.assetClass || 'other';
-    const cohortKey = peerGroup === 'category_plan'
-      ? `${assetKey}\u0000${fund.subCategory || ''}\u0000${fund.plan || ''}`
-      : `${assetKey}\u0000${fund.subCategory || ''}`;
-    const val = cohortMaps.get(cohortKey)?.get(fund.code)
-      ?? assetMaps.get(assetKey)?.get(fund.code)
-      ?? universeMap.get(fund.code);
-    if (val !== undefined) result.set(fund.code, val);
+  for (let i = 0; i < funds.length; i++) {
+    const fund = funds[i]!;
+    const cohortMap = cohortMaps.get(cohortKeys[i]!);
+    if (cohortMap) {
+      const val = cohortMap.get(fund.code);
+      if (val !== undefined) result.set(fund.code, val);
+      continue;
+    }
+    const rawVal = fund.metrics?.[factor.id];
+    if (typeof rawVal !== 'number' || !Number.isFinite(rawVal)) continue;
+    const fallbackVal = getAssetMap(assetKeys[i]!)?.get(fund.code) ?? getUniverseMap().get(fund.code);
+    if (fallbackVal !== undefined) result.set(fund.code, fallbackVal);
   }
   return result;
 }
@@ -164,13 +268,33 @@ export function rankFunds(
   options: RankFundsOptions = {},
 ): RankedFund[] {
   const peerGroup = options.peerGroup ?? 'filtered';
+  const effectivePeerGroup: PeerGroupMode = peerGroup === 'filtered' ? 'subcategory' : peerGroup;
+  const expectedHash = scoreFactorsSignature(factors, effectivePeerGroup);
+
+  if (
+    options.useSavedScores &&
+    options.includeContributions === false &&
+    hasCurrentPersistentScores(funds, factors, effectivePeerGroup)
+  ) {
+    return funds.map(fund => {
+      const savedScore = fund.metrics?.[SCORE_METRIC_ID];
+      return {
+        fund,
+        score: typeof savedScore === 'number' && Number.isFinite(savedScore) ? savedScore : null,
+        contributions: {},
+      };
+    });
+  }
+
   const robustMagnitude = options.robustMagnitude ?? (peerGroup !== 'filtered');
-  const expectedHash = scoreFactorsSignature(factors, peerGroup === 'filtered' ? 'subcategory' : peerGroup);
+  const cohorts = peerGroup !== 'filtered' && peerGroup !== 'universe' && funds.length >= 6
+    ? buildCohorts(funds, peerGroup)
+    : undefined;
 
   const percentiles = new Map<string, Map<number, number>>();
   for (const factor of factors) {
     if (factor.weight <= 0) continue;
-    percentiles.set(factor.id, buildFactorPercentileMap(funds, factor, peerGroup, robustMagnitude));
+    percentiles.set(factor.id, buildFactorPercentileMap(funds, factor, peerGroup, robustMagnitude, cohorts));
   }
 
   return funds.map(fund => {
@@ -213,6 +337,42 @@ function hasOwnScoredSignal(fund: Fund, factors: readonly ScoreFactor[]): boolea
 }
 
 /**
+ * Fast typed-array score computation for worker and UI updates without allocating per-fund contribution maps.
+ */
+export function computeScoreArray(
+  funds: Fund[],
+  factors: ScoreFactor[] = DEFAULT_SCORE_FACTORS,
+  peerGroup: PeerGroupMode = 'subcategory',
+): { scores: Float32Array; modelHash: number } {
+  const modelHash = scoreFactorsSignature(factors, peerGroup);
+  const scores = new Float32Array(funds.length).fill(Number.NaN);
+  const activeFactors = factors.filter(f => f.weight > 0);
+  const totalWeight = activeFactors.reduce((sum, f) => sum + f.weight, 0);
+  if (!funds.length || totalWeight <= 0) return { scores, modelHash };
+
+  const cohorts = peerGroup !== 'filtered' && peerGroup !== 'universe' && funds.length >= 6
+    ? buildCohorts(funds, peerGroup)
+    : undefined;
+  const factorMaps = activeFactors.map(factor => ({
+    factor,
+    map: buildFactorPercentileMap(funds, factor, peerGroup, true, cohorts),
+  }));
+
+  for (let i = 0; i < funds.length; i++) {
+    const fund = funds[i]!;
+    if (!hasOwnScoredSignal(fund, activeFactors)) continue;
+    let weighted = 0;
+    for (let fIdx = 0; fIdx < factorMaps.length; fIdx++) {
+      const { factor, map } = factorMaps[fIdx]!;
+      const pct = map.get(fund.code) ?? 0;
+      weighted += pct * factor.weight;
+    }
+    scores[i] = Number((weighted / totalWeight).toFixed(2));
+  }
+  return { scores, modelHash };
+}
+
+/**
  * Precomputes and stores persistent multi-factor scores (`metrics.composite_score`)
  * across the catalog so scores remain stable and do not churn during filtering or on-demand chart loads.
  */
@@ -220,16 +380,29 @@ export function applyPersistentScores(
   funds: Fund[],
   factors: ScoreFactor[] = DEFAULT_SCORE_FACTORS,
   peerGroup: PeerGroupMode = 'subcategory',
+  precomputed?: { scores: Float32Array; modelHash: number },
 ): Fund[] {
   if (!funds.length) return funds;
-  const modelHash = scoreFactorsSignature(factors, peerGroup);
-  const ranked = rankFunds(funds, factors, { peerGroup, robustMagnitude: true, useSavedScores: false });
-  return ranked.map(({ fund, score }) => {
+  const { scores, modelHash } = precomputed ?? computeScoreArray(funds, factors, peerGroup);
+  return funds.map((fund, i) => {
+    const score = scores[i]!;
+    const currentScore = fund.metrics?.[SCORE_METRIC_ID];
+    const currentHash = fund.metrics?.[SCORE_MODEL_HASH_METRIC_ID];
+    const isFiniteScore = Number.isFinite(score);
+    if (
+      isFiniteScore &&
+      currentScore === score &&
+      currentHash !== undefined &&
+       currentHash !== null &&
+      Math.round(currentHash) === modelHash
+    ) {
+      return fund;
+    }
     const metrics = { ...fund.metrics };
     const reasons = { ...fund.metricReasons };
     const provenance = { ...fund.metricProvenance };
-    if (score !== null && Number.isFinite(score) && hasOwnScoredSignal(fund, factors)) {
-      metrics[SCORE_METRIC_ID] = Number(score.toFixed(2));
+    if (isFiniteScore) {
+      metrics[SCORE_METRIC_ID] = score;
       metrics[SCORE_MODEL_HASH_METRIC_ID] = modelHash;
       delete reasons[SCORE_METRIC_ID];
       provenance[SCORE_METRIC_ID] = 'PEER_MEDIAN';

@@ -66,4 +66,24 @@ describe('screener index invalidation and on-demand metric stability', () => {
     expect(first.scores!.buffer).not.toBe(second.scores!.buffer);
     expect(Array.from(first.scores!)).toEqual(Array.from(second.scores!));
   });
+
+  it('updates scores in-place without requiring a full ScreenerEngine rebuild', () => {
+    const funds = [
+      { ...fund, code: 1, metrics: { cagr_3y: 12, sharpe: 1.1 } },
+      { ...fund, code: 2, metrics: { cagr_3y: 15, sharpe: 1.4 } },
+    ];
+    const withUpdatedScores = [
+      { ...funds[0]!, metrics: { ...funds[0]!.metrics, composite_score: 42.5, composite_score_model_hash: 12345 } },
+      { ...funds[1]!, metrics: { ...funds[1]!.metrics, composite_score: 91.2, composite_score_model_hash: 12345 } },
+    ];
+    expect(sameScreenerIndexData(funds, withUpdatedScores)).toBe(true);
+
+    const factors = [{ id: 'cagr_3y', weight: 50, direction: 'higher' as const }, { id: 'sharpe', weight: 50, direction: 'higher' as const }];
+    const engine = new ScreenerEngine(funds);
+    engine.updateScores(new Float32Array([88.5, 34.0]), 999);
+    const result = engine.query(defaultScreenerFilters, { id: 'score', desc: true }, 20_500 * 86_400_000, factors);
+    expect(Array.from(result.indices)).toEqual([0, 1]);
+    expect(result.scores?.[0]).toBeCloseTo(88.5, 2);
+    expect(result.scores?.[1]).toBeCloseTo(34.0, 2);
+  });
 });

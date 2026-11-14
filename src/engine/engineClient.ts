@@ -7,6 +7,7 @@ import { recordPerfMeasurement } from '../app/perf';
 
 type WorkerReply =
   | { kind: 'ready'; id: number; size: number; categoryTree: EngineCategoryTree[]; buildMs?: number; phaseTimings?: Record<string, number> }
+  | { kind: 'scores-updated'; id: number }
   | { kind: 'result'; id: number; result: EngineQueryResult }
   | { kind: 'scatter-result'; id: number; result: ScatterQueryResult }
   | { kind: 'error'; id: number; message: string };
@@ -22,8 +23,9 @@ function sameStringArray(a: readonly string[] | undefined, b: readonly string[] 
 function sameMetricValues(a: Fund['metrics'] | undefined, b: Fund['metrics'] | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  const aKeys = Object.keys(a);
-  const bKeys = Object.keys(b);
+  const ignoreScoreKey = (k: string) => k === 'composite_score' || k === 'composite_score_model_hash';
+  const aKeys = Object.keys(a).filter(k => !ignoreScoreKey(k));
+  const bKeys = Object.keys(b).filter(k => !ignoreScoreKey(k));
   if (aKeys.length !== bKeys.length) return false;
   for (let i = 0; i < aKeys.length; i++) {
     const key = aKeys[i]!;
@@ -100,6 +102,23 @@ export class ScreenerEngineClient {
       recordPerfMeasurement('fund transfer to screener worker', performance.now() - started, `${funds.length.toLocaleString('en-IN')} funds · ${validBuffer?'transferred columnar buffer':'structured-clone postMessage'} time`);
     });
     return this.loadPromise;
+  }
+
+  async updateScores(scores: Float32Array, modelHash: number): Promise<void> {
+    await this.loadPromise;
+    const id = ++this.nextId;
+    if (!this.worker) {
+      this.local?.updateScores(scores, modelHash);
+      return;
+    }
+    const copy = scores.slice();
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, {
+        resolve: reply => reply.kind === 'scores-updated' ? resolve() : reject(new Error('Unexpected score update worker response.')),
+        reject,
+      });
+      this.worker!.postMessage({ kind: 'update-scores', id, scores: copy, modelHash }, [copy.buffer]);
+    });
   }
 
   async query(filters: ScreenerFilters, sort: EngineSort, now = Date.now(), factors: ScoreFactor[] = []): Promise<{ id: number; result: EngineQueryResult }> {

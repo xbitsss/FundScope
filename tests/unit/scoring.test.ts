@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyPersistentScores, DEFAULT_SCORE_FACTORS, hasCurrentPersistentScores, rankFunds, SCORE_METRIC_ID } from '../../src/domain/scoring/engine';
+import { applyPersistentScores, computeScoreArray, DEFAULT_SCORE_FACTORS, hasCurrentPersistentScores, PRESET_SCORE_MODELS, rankFunds, SCORE_METRIC_ID } from '../../src/domain/scoring/engine';
 import { applyPeerMetrics } from '../../src/domain/metrics/relative';
 import { ScreenerEngine } from '../../src/engine/core';
 import { defaultScreenerFilters } from '../../src/domain/screener/filters';
@@ -74,5 +74,20 @@ describe('peer score engine',()=>{
     expect(fullQuery.scores?.[0]).toBeCloseTo(universe[0]!.metrics.composite_score!,2);
     expect(filteredQuery.scores?.[0]).toBeCloseTo(fullQuery.scores![0]!,5);
     expect(filteredQuery.scores?.[2]).toBeCloseTo(fullQuery.scores![2]!,5);
+  });
+
+  it('computes typed Float32Array scores matching persistent scores and supports institutional presets',()=>{
+    const universe=[
+      fund(1,18,-10,'Large Cap'),
+      fund(2,14,-14,'Large Cap'),
+      fund(3,11,-18,'Large Cap'),
+    ];
+    expect(PRESET_SCORE_MODELS.length).toBeGreaterThanOrEqual(4);
+    for(const preset of PRESET_SCORE_MODELS){
+      const {scores,modelHash}=computeScoreArray(universe,preset.factors,preset.peerGroup);
+      const persisted=applyPersistentScores(universe,preset.factors,preset.peerGroup,{scores,modelHash});
+      expect(hasCurrentPersistentScores(persisted,preset.factors,preset.peerGroup)).toBe(true);
+      expect(persisted[0]!.metrics[SCORE_METRIC_ID]).toBeCloseTo(scores[0]!,4);
+    }
   });
 });

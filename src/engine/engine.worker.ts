@@ -8,6 +8,7 @@ import { decodeFundColumns } from '../adapters/snapshot/columnar';
 
 type Message =
   | { kind: 'load'; id: number; funds?: Fund[]; indexBuffer?: ArrayBuffer }
+  | { kind: 'update-scores'; id: number; scores: Float32Array; modelHash: number }
   | { kind: 'query'; id: number; filters: ScreenerFilters; sort: EngineSort; now: number; factors: ScoreFactor[] }
   | { kind: 'scatter'; id: number; options: ScatterQueryOptions };
 type WorkerScope = { onmessage: ((event: MessageEvent<Message>) => void) | null; postMessage: (message: unknown, transfer?: Transferable[]) => void };
@@ -27,6 +28,11 @@ scope.onmessage = event => {
       return;
     }
     if (!engine) throw new Error('The local screener index is not ready.');
+    if (message.kind === 'update-scores') {
+      engine.updateScores(message.scores, message.modelHash);
+      scope.postMessage({ kind: 'scores-updated', id: message.id });
+      return;
+    }
     if (message.kind === 'scatter') {
       const result: ScatterQueryResult = engine.scatterQuery(message.options);
       scope.postMessage({ kind: 'scatter-result', id: message.id, result }, [result.codes.buffer, result.x.buffer, result.y.buffer, result.quadrants.buffer, result.selected.buffer, result.percentileX.buffer, result.percentileY.buffer, result.rankX.buffer, result.rankY.buffer]);

@@ -1,9 +1,9 @@
-import { lazy, Suspense, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { lazy, Suspense, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { flushSync } from 'react-dom';
 import { Activity, AlertTriangle, ArrowDown, ArrowDownUp, ArrowUp, BadgeCheck, Bookmark, Check, ChevronDown, CircleHelp, Database, Download, Filter, Gauge, GitCompareArrows, LockKeyhole, Menu, Moon, Plus, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Sparkles, Sun, TableProperties, Trash2, Upload, X } from 'lucide-react';
 import { metricRegistry } from '../domain/metrics/registry';
 import type { Fund, MetricDefinition, NavPoint } from '../domain/types';
-import { applyPersistentScores, DEFAULT_SCORE_FACTORS, hasCurrentPersistentScores, rankFunds, type PeerGroupMode, type ScoreFactor } from '../domain/scoring/engine';
+import { applyPersistentScores, computeScoreArray, DEFAULT_SCORE_FACTORS, hasCurrentPersistentScores, PRESET_SCORE_MODELS, SCORE_METRIC_ID, SCORE_MODEL_HASH_METRIC_ID, scoreFactorsSignature, type PeerGroupMode, type ScoreFactor, type ScoreModelPreset } from '../domain/scoring/engine';
 import { getClassificationDiagnostics, getFundIndexBuffer, getFunds, getLocalState, importClassificationAudit, initializeRepository, loadFundDetails, recordClassificationDecision, saveFundMetrics, saveFunds, setLocalState, sourceStatus, waitForNormalizedStorage } from '../app/persistence';
 import { refreshCatalog } from '../app/refresh';
 import { ensureFundMetricsComputed, hasAuthoritativeMetrics, loadSelectedHistories, prefetchSchemeHistory } from '../app/historyLoader';
@@ -44,7 +44,9 @@ const ScatterTab = lazy(() => import('./scatter/ScatterTab').then(module => ({ d
 
 type Route='screener'|'compare'|'score'|'health'|'governance'|'settings';
 type MetricFilter={id:string,min:number|null,max:number|null,excludeMissing:boolean};
-type SavedScoreModel={name:string;factors:ScoreFactor[];peerGroup?:PeerGroupMode;savedAt:number;dataAsOf?:number|null};
+type SavedScoreModel={id?:string;name:string;description?:string;factors:ScoreFactor[];peerGroup?:PeerGroupMode;savedAt:number;dataAsOf?:number|null};
+type BackendOpState={title:string;subtitle:string;badge?:string}|null;
+type PersistedScoreCache={modelHash:number;savedAt:number;scores:Record<number,number>};
 type SavedScreen={name:string;version:5;filters:ScreenerFilters;sort:{id:string;desc:boolean};density:'comfortable'|'compact';riskWindow:1|3|5;scatter?:ScatterPreferences};
 type SourceState={fetchedAt:number|null,dataAsOf:number|null,status:string,detail:string|null};
 const EMPTY_INDICES=new Uint32Array(0);
@@ -52,6 +54,67 @@ const dateText=(epoch:number|null)=>formatEpochDay(epoch);
 const pct=(n:number|null|undefined)=>n==null?'—':`${n>=0?'+':''}${n.toFixed(2)}%`;
 const fmt=(n:number|null|undefined, unit:'%'|'ratio'|'years'|'₹ Cr'|'enum'='%', decimals=2)=>n==null?'—':unit==='years'?`${n.toFixed(1)} yrs`:unit==='₹ Cr'?`₹${n.toLocaleString('en-IN',{maximumFractionDigits:0})} Cr`:unit==='ratio'?n.toFixed(decimals):`${n.toFixed(decimals)}%`;
 const initialFactors:ScoreFactor[]=DEFAULT_SCORE_FACTORS;
+const yieldToPaint=()=>new Promise<void>(resolve=>window.requestAnimationFrame(()=>window.setTimeout(resolve,16)));
+function slugModelId(name:string):string{return normalizeFilterText(name).replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'custom-model';}
+function readSavedScoreModels():ScoreModelPreset[]{
+  try{
+    const raw=JSON.parse(localStorage.getItem('fundscope-score-models')||'[]');
+    const custom:ScoreModelPreset[]=Array.isArray(raw)?raw.filter((m):m is ScoreModelPreset=>Boolean(m&&typeof m==='object'&&typeof m.name==='string'&&Array.isArray(m.factors))).map(m=>({
+      id:m.id||slugModelId(m.name),
+      name:m.name,
+      description:m.description||'Custom multi-factor score model saved on this device.',
+      peerGroup:m.peerGroup??'subcategory',
+      factors:m.factors,
+      builtIn:false,
+      savedAt:typeof m.savedAt==='number'?m.savedAt:Date.now(),
+      dataAsOf:m.dataAsOf??null,
+    })):[];
+    const customById=new Map(custom.map(m=>[m.id,m]));
+    const merged:ScoreModelPreset[]=[...custom];
+    for(const preset of PRESET_SCORE_MODELS){
+      if(!customById.has(preset.id)&&!custom.some(m=>normalizeFilterText(m.name)===normalizeFilterText(preset.name))){
+        merged.push(preset);
+      }
+    }
+    return merged;
+  }catch{return [...PRESET_SCORE_MODELS];}
+}
+function persistCustomScoreModels(models:ScoreModelPreset[]):void{
+  const custom=models.filter(m=>!m.builtIn);
+  try{localStorage.setItem('fundscope-score-models',JSON.stringify(custom));}catch{}
+  void setLocalState('score-models-list',custom).catch(()=>undefined);
+}
+function readPersistedScoreCache():PersistedScoreCache|null{
+  try{
+    const parsed=JSON.parse(localStorage.getItem('fundscope-persisted-scores')||'null') as PersistedScoreCache|null;
+    return parsed&&typeof parsed.modelHash==='number'&&parsed.scores&&typeof parsed.scores==='object'?parsed:null;
+  }catch{return null;}
+}
+function writePersistedScoreCache(modelHash:number,scoresArray:Float32Array,funds:readonly Fund[],savedAt:number):void{
+  const scores:Record<number,number>={};
+  for(let i=0;i<funds.length;i++){
+    const v=scoresArray[i]!;
+    if(Number.isFinite(v))scores[funds[i]!.code]=Number(v.toFixed(2));
+  }
+  const payload:PersistedScoreCache={modelHash,savedAt,scores};
+  try{localStorage.setItem('fundscope-persisted-scores',JSON.stringify(payload));}catch{}
+  void setLocalState('persisted-scores',payload).catch(()=>undefined);
+}
+function hydrateOrComputePersistentScores(funds:Fund[],factors:ScoreFactor[],peerGroup:PeerGroupMode):Fund[]{
+  if(!funds.length||hasCurrentPersistentScores(funds,factors,peerGroup))return funds;
+  const expectedHash=scoreFactorsSignature(factors,peerGroup);
+  const cached=readPersistedScoreCache();
+  if(cached&&Math.round(cached.modelHash)===expectedHash){
+    const scores=new Float32Array(funds.length).fill(Number.NaN);
+    let hits=0;
+    for(let i=0;i<funds.length;i++){
+      const v=cached.scores[funds[i]!.code];
+      if(typeof v==='number'&&Number.isFinite(v)){scores[i]=v;hits++;}
+    }
+    if(hits>0)return applyPersistentScores(funds,factors,peerGroup,{scores,modelHash:expectedHash});
+  }
+  return applyPersistentScores(funds,factors,peerGroup);
+}
 function readScatterPreferences():ScatterPreferences{try{return parseScatterPreferences(JSON.parse(localStorage.getItem('fundscope-scatter-preferences')||'null'))??defaultScatterPreferences;}catch{return defaultScatterPreferences;}}
 const cleanLabel=(value:unknown)=>typeof value==='string'?value.trim().replace(/\s+/g,' '):'';
 const uniqueTextLabels=(values:unknown[])=>{const labels=new Map<string,string>();for(const raw of values){const value=cleanLabel(raw);const key=normalizeFilterText(value);if(value&&key!=='unknown'&&!labels.has(key))labels.set(key,value);}return [...labels.values()].sort((a,b)=>a.localeCompare(b));};
@@ -101,6 +164,9 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
   const loadedSnapshotDetails=useRef<Set<number>>(new Set());
   const [sort,setSort]=useState<{id:string;desc:boolean}>({id:'name',desc:false}); const [selected,setSelected]=useState<number[]>([]); const [density,setDensity]=useState<'comfortable'|'compact'>(()=>{const saved=localStorage.getItem('fundscope-density');return saved==='comfortable'||saved==='compact'?saved:window.matchMedia('(max-width: 767px)').matches?'compact':'comfortable';}); const [riskWindow,setRiskWindowRaw]=useState<1|3|5>(()=>{const value=Number(localStorage.getItem('fundscope-risk-window')||3);return value===1||value===5?value:3;});
   const [fetchedPct,setFetchedPct]=useState({done:0,total:0}); const [factors,setFactors]=useState<ScoreFactor[]>(initialFactors); const [peerGroup,setPeerGroup]=useState<PeerGroupMode>('subcategory'); const [scoreSavedAt,setScoreSavedAt]=useState<number|null>(null); const [modelName,setModelName]=useState('JPMC multi-factor model'); const [modelSaved,setModelSaved]=useState(false);const modelSavedTimer=useRef<number|undefined>(undefined);const riskFree=DEFAULT_RISK_FREE_RATE_PERCENT; const [activeModel,setActiveModel]=useState(false);
+  const [savedModels,setSavedModels]=useState<ScoreModelPreset[]>(readSavedScoreModels);
+  const [backendOp,setBackendOp]=useState<BackendOpState>(null);
+  const [scoreSyncVersion,setScoreSyncVersion]=useState(0);
   const [aumStatus,setAumStatus]=useState(()=>localStorage.getItem('fundscope-amfi-aum-status')||'Not checked');const [terStatus,setTerStatus]=useState(()=>localStorage.getItem('fundscope-amfi-ter-status')||'Not checked');
   const historyNeeds=(fund:Fund)=>needsHistory(fund)&&!unavailableCodes.has(fund.code);
   const metricChangeClass=(code:number,metricId:string)=>{const direction=cellChanges[`${code}:${metricId}`];return direction?`cell-${direction}`:undefined;};
@@ -109,16 +175,17 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
   const [savedScreens,setSavedScreens]=useState<string[]>(readSavedScreens);
   useEffect(()=>{document.documentElement.dataset.theme=theme;localStorage.setItem('fundscope-theme',theme);const color=theme==='dark'?'#0b0f14':'#f7f8fa';document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach(meta=>{meta.content=color;});},[theme]);
   useEffect(()=>{fundsRef.current=funds;},[funds]);
-  useEffect(()=>{if(initialFunds===undefined)return;const enriched=initialFunds.map(fund=>ensureFundMetricsComputed(fund,riskWindow,riskFree));const scored=hasCurrentPersistentScores(enriched,factors,peerGroup)?enriched:applyPersistentScores(enriched,factors,peerGroup);applyRefreshedFunds(scored,{silent:true});setDetail(current=>{if(!current)return null;const refreshed=scored.find(fund=>fund.code===current.code);return refreshed?ensureFundMetricsComputed({...current,...refreshed},riskWindow,riskFree):null;});},[initialFunds]);
+  useEffect(()=>{if(initialFunds===undefined)return;const enriched=initialFunds.map(fund=>ensureFundMetricsComputed(fund,riskWindow,riskFree));const scored=hydrateOrComputePersistentScores(enriched,factors,peerGroup);applyRefreshedFunds(scored,{silent:true});setDetail(current=>{if(!current)return null;const refreshed=scored.find(fund=>fund.code===current.code);return refreshed?ensureFundMetricsComputed({...current,...refreshed},riskWindow,riskFree):null;});},[initialFunds]);
   useEffect(()=>isPerfEnabled()?subscribePerfMeasurements(setPerfMeasurements):undefined,[]);
   useEffect(()=>{let alive=true;void getLocalState<ScatterPreferences|null>('scatter-preferences',null).then(saved=>{if(!alive)return;try{if(!localStorage.getItem('fundscope-scatter-preferences')&&saved)setScatterPreferences(parseScatterPreferences(saved)??defaultScatterPreferences);}catch{}setScatterHydrated(true);}).catch(()=>{if(alive)setScatterHydrated(true);});return()=>{alive=false;};},[]);
+  useEffect(()=>{let alive=true;void getLocalState<ScoreModelPreset[]|null>('score-models-list',null).then(saved=>{if(!alive||!Array.isArray(saved)||!saved.length)return;setSavedModels(current=>{const customIds=new Set(current.filter(m=>!m.builtIn).map(m=>m.id));const merged=[...current.filter(m=>!m.builtIn)];for(const item of saved){const id=item.id||slugModelId(item.name);if(!customIds.has(id)){merged.push({...item,id,builtIn:false});customIds.add(id);}}for(const preset of PRESET_SCORE_MODELS){if(!customIds.has(preset.id)&&!merged.some(m=>normalizeFilterText(m.name)===normalizeFilterText(preset.name)))merged.push(preset);}return merged;});}).catch(()=>undefined);return()=>{alive=false;};},[]);
   useEffect(()=>{if(!scatterHydrated)return;try{localStorage.setItem('fundscope-scatter-preferences',JSON.stringify(scatterPreferences));}catch{}void setLocalState('scatter-preferences',scatterPreferences).catch(()=>undefined);},[scatterPreferences,scatterHydrated]);
   useEffect(()=>{localStorage.setItem('fundscope-density',density);},[density]);
   useEffect(()=>{try{localStorage.setItem('fundscope-visible-metrics',JSON.stringify(visibleMetricIds));}catch{}},[visibleMetricIds]);
   useEffect(()=>()=>{if(modelSavedTimer.current!==undefined)window.clearTimeout(modelSavedTimer.current);if(undoFiltersTimer.current!==undefined)window.clearTimeout(undoFiltersTimer.current);if(cellChangesTimer.current!==undefined)window.clearTimeout(cellChangesTimer.current);if(hoverPrefetchTimer.current!==undefined)window.clearTimeout(hoverPrefetchTimer.current);hoverPrefetchAbort.current?.abort();},[]);
   useEffect(()=>{const onKeyDown=(event:KeyboardEvent)=>{if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k'){event.preventDefault();setRoute('screener');searchInput.current?.focus();}};window.addEventListener('keydown',onKeyDown);return()=>window.removeEventListener('keydown',onKeyDown);},[]);
   useEffect(()=>{if(!picker&&!sidebarPicker)return;const onPointerDown=(event:PointerEvent)=>{if(!(event.target instanceof Node))return;if(picker&&!screenOptionsRef.current?.contains(event.target))setPicker(false);if(sidebarPicker&&!sidebarPickerRef.current?.contains(event.target))setSidebarPicker(false);};const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape'){setPicker(false);setSidebarPicker(false);}};document.addEventListener('pointerdown',onPointerDown);window.addEventListener('keydown',onKeyDown);return()=>{document.removeEventListener('pointerdown',onPointerDown);window.removeEventListener('keydown',onKeyDown);};},[picker,sidebarPicker]);
-  const recomputeAll=(windowYears:number,rate:number)=>{void (async()=>{const updated=(await computeFundsInWorker(funds.filter(fund=>fund.history.length>0),windowYears,rate,{fetchBenchmarkSeries:!hostedWeb})).map(fund=>({...fund,metricsNavAsOf:fund.history.at(-1)?.date}));const computedByCode=new Map(updated.map(fund=>[fund.code,fund]));const merged=funds.map(fund=>computedByCode.get(fund.code)??fund);const peers=await computePeerMetricsInWorker(merged,factors,peerGroup);applyRefreshedFunds(peers);const saveStarted=startPerfMeasurement();await saveFundMetrics(peers);finishPerfMeasurement('saveFunds after recomputeAll',saveStarted,`${peers.length.toLocaleString('en-IN')} metric rows`);})();};
+  const recomputeAll=(windowYears:number,rate:number)=>{void (async()=>{setBackendOp({title:`Recomputing ${windowYears}Y risk & benchmark metrics…`,subtitle:'Updating volatility, Sharpe, Sortino, and peer-normalized scores in background worker.',badge:'WORKER ENGINE'});await yieldToPaint();try{const updated=(await computeFundsInWorker(fundsRef.current.filter(fund=>fund.history.length>0),windowYears,rate,{fetchBenchmarkSeries:!hostedWeb})).map(fund=>({...fund,metricsNavAsOf:fund.history.at(-1)?.date}));const computedByCode=new Map(updated.map(fund=>[fund.code,fund]));const merged=fundsRef.current.map(fund=>computedByCode.get(fund.code)??fund);const peers=await computePeerMetricsInWorker(merged,factors,peerGroup);const {scores,modelHash}=computeScoreArray(peers,factors,peerGroup);await engineClient.updateScores(scores,modelHash).catch(()=>undefined);applyRefreshedFunds(peers);setScoreSyncVersion(v=>v+1);const saveStarted=startPerfMeasurement();void saveFundMetrics(peers).then(()=>finishPerfMeasurement('saveFunds after recomputeAll',saveStarted,`${peers.length.toLocaleString('en-IN')} metric rows`)).catch(()=>undefined);}finally{setBackendOp(null);}})();};
   const setRiskWindow=(value:number)=>{const next=value as 1|3|5;setRiskWindowRaw(next);localStorage.setItem('fundscope-risk-window',String(next));recomputeAll(next,riskFree);};
   useEffect(()=>{try{localStorage.removeItem('fundscope-risk-free');}catch{}},[]);
   const loadHistory=async(codes:number[],sourceFunds=funds,signal?:AbortSignal)=>{
@@ -142,13 +209,13 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
       const message=errorText(error);setHistoryError(`NAV history load failed: ${message}`);setUnavailableCodes(current=>new Set([...current,...requested]));
     }finally{historyLock.current=false;pauseHistoryRef.current=false;setHistoryPaused(false);setHistoryRunning(false);setHistoryPrefetchVersion(value=>value+1);}
   };
-  useEffect(()=>{if(initialFunds!==undefined)return;let alive=true;(async()=>{try{await initializeRepository();const [cached,source,savedModel]=await Promise.all([getFunds(),sourceStatus(),getLocalState<SavedScoreModel|null>('score-model',null)]);if(!alive)return;const activeFactors=savedModel?.factors?.length?savedModel.factors:DEFAULT_SCORE_FACTORS;const activePeerGroup=savedModel?.peerGroup??'subcategory';if(savedModel?.factors?.length){setModelName(savedModel.name);setFactors(savedModel.factors);if(savedModel.peerGroup)setPeerGroup(savedModel.peerGroup);setScoreSavedAt(savedModel.savedAt);}const enrichedCached=cached.map(fund=>ensureFundMetricsComputed(fund,riskWindow,riskFree));const hasScores=hasCurrentPersistentScores(enrichedCached,activeFactors,activePeerGroup);const initialScored=hasScores?enrichedCached:applyPersistentScores(enrichedCached,activeFactors,activePeerGroup);setFunds(initialScored);setStatus(source);setIsLoading(false);setDbError(null);if(!hasScores&&initialScored.length>0){void saveFundMetrics(initialScored).catch(()=>undefined);}if(initialScored.some(fund=>fund.history.length>=2&&!hasAuthoritativeMetrics(fund,fund.history.at(-1)?.date))){void computePeerMetricsInWorker(initialScored,activeFactors,activePeerGroup).then(async peers=>{if(!alive)return;applyRefreshedFunds(peers,{silent:true});await saveFundMetrics(peers);}).catch(()=>undefined);}if(!hostedWeb){const cacheIsFresh=initialScored.length>0&&source.fetchedAt!==null&&Date.now()-source.fetchedAt<12*3_600_000;if(!cacheIsFresh){void refresh();}void waitForNormalizedStorage().then(async ready=>{if(!alive||!ready||refreshLock.current||initialScored.length>0)return;const latest=(await getFunds()).map(fund=>ensureFundMetricsComputed(fund,riskWindow,riskFree));if(alive&&!refreshLock.current&&latest.length>0)setFunds(hasCurrentPersistentScores(latest,activeFactors,activePeerGroup)?latest:applyPersistentScores(latest,activeFactors,activePeerGroup));});}}catch(e){if(alive){console.error('App initialization failed:',e);setIsLoading(false);setDbError(errorText(e));setRefreshError(errorText(e));}}})();return()=>{alive=false;};},[initialFunds]);
-  useEffect(()=>{if(initialFunds===undefined)return;let alive=true;const timer=window.setTimeout(()=>{void getLocalState<SavedScoreModel|null>('score-model',null).then(saved=>{if(alive&&saved?.factors?.length){const nextPeerGroup=saved.peerGroup??'subcategory';setModelName(saved.name);setFactors(saved.factors);setPeerGroup(nextPeerGroup);setScoreSavedAt(saved.savedAt);if(!hasCurrentPersistentScores(fundsRef.current,saved.factors,nextPeerGroup)){const scored=applyPersistentScores(fundsRef.current,saved.factors,nextPeerGroup);applyRefreshedFunds(scored,{silent:true});void saveFundMetrics(scored).catch(()=>undefined);}}}).catch(()=>undefined);},750);return()=>{alive=false;window.clearTimeout(timer);};},[initialFunds]);
+  useEffect(()=>{if(initialFunds!==undefined)return;let alive=true;(async()=>{try{await initializeRepository();const [cached,source,savedModel]=await Promise.all([getFunds(),sourceStatus(),getLocalState<SavedScoreModel|null>('score-model',null)]);if(!alive)return;const activeFactors=savedModel?.factors?.length?savedModel.factors:DEFAULT_SCORE_FACTORS;const activePeerGroup=savedModel?.peerGroup??'subcategory';if(savedModel?.factors?.length){setModelName(savedModel.name);setFactors(savedModel.factors);if(savedModel.peerGroup)setPeerGroup(savedModel.peerGroup);setScoreSavedAt(savedModel.savedAt);}const enrichedCached=cached.map(fund=>ensureFundMetricsComputed(fund,riskWindow,riskFree));const hasScores=hasCurrentPersistentScores(enrichedCached,activeFactors,activePeerGroup);const initialScored=hasScores?enrichedCached:hydrateOrComputePersistentScores(enrichedCached,activeFactors,activePeerGroup);setFunds(initialScored);setStatus(source);setIsLoading(false);setDbError(null);if(!hasScores&&initialScored.length>0){void saveFundMetrics(initialScored).catch(()=>undefined);}if(initialScored.some(fund=>fund.history.length>=2&&!hasAuthoritativeMetrics(fund,fund.history.at(-1)?.date))){void computePeerMetricsInWorker(initialScored,activeFactors,activePeerGroup).then(async peers=>{if(!alive)return;applyRefreshedFunds(peers,{silent:true});await saveFundMetrics(peers);}).catch(()=>undefined);}if(!hostedWeb){const cacheIsFresh=initialScored.length>0&&source.fetchedAt!==null&&Date.now()-source.fetchedAt<12*3_600_000;if(!cacheIsFresh){void refresh();}void waitForNormalizedStorage().then(async ready=>{if(!alive||!ready||refreshLock.current||initialScored.length>0)return;const latest=(await getFunds()).map(fund=>ensureFundMetricsComputed(fund,riskWindow,riskFree));if(alive&&!refreshLock.current&&latest.length>0)setFunds(hydrateOrComputePersistentScores(latest,activeFactors,activePeerGroup));});}}catch(e){if(alive){console.error('App initialization failed:',e);setIsLoading(false);setDbError(errorText(e));setRefreshError(errorText(e));}}})();return()=>{alive=false;};},[initialFunds]);
+  useEffect(()=>{if(initialFunds===undefined)return;let alive=true;const timer=window.setTimeout(()=>{void getLocalState<SavedScoreModel|null>('score-model',null).then(saved=>{if(alive&&saved?.factors?.length){const nextPeerGroup=saved.peerGroup??'subcategory';setModelName(saved.name);setFactors(saved.factors);setPeerGroup(nextPeerGroup);setScoreSavedAt(saved.savedAt);if(!hasCurrentPersistentScores(fundsRef.current,saved.factors,nextPeerGroup)){const scored=hydrateOrComputePersistentScores(fundsRef.current,saved.factors,nextPeerGroup);applyRefreshedFunds(scored,{silent:true});void saveFundMetrics(scored).catch(()=>undefined);}}}).catch(()=>undefined);},750);return()=>{alive=false;window.clearTimeout(timer);};},[initialFunds]);
   const refresh=async()=>{
     if(hostedWeb){setRefreshError('This hosted data snapshot refreshes automatically each night.');return;}
     if(refreshLock.current)return;refreshLock.current=true;setRefreshing(true);setRefreshError('');setRefreshStage('Connecting to AMFI…');
     try{
-      const result=await refreshCatalog(riskWindow,riskFree,setRefreshStage);const withOverrides=await applyLocalDisclosureOverrides(result.funds);const staleMetrics=withOverrides.filter(fund=>fund.history.length>0&&(fund.metricsNavAsOf!==fund.history.at(-1)?.date||fund.metricProvenance?.beta!=='BENCHMARK_PROXY'));const recalculated=staleMetrics.length?await computeFundsInWorker(staleMetrics,riskWindow,riskFree):[];const recalculatedByCode=new Map(recalculated.map(fund=>[fund.code,{...fund,metricsNavAsOf:fund.history.at(-1)?.date}]));const prepared=withOverrides.map(fund=>ensureFundMetricsComputed(recalculatedByCode.get(fund.code)??fund,riskWindow,riskFree));const computed=await computePeerMetricsInWorker(prepared,factors,peerGroup);await saveFundMetrics(computed);setScoreSavedAt(Date.now());applyRefreshedFunds(computed);setStatus(await sourceStatus());
+      const result=await refreshCatalog(riskWindow,riskFree,setRefreshStage);const withOverrides=await applyLocalDisclosureOverrides(result.funds);const staleMetrics=withOverrides.filter(fund=>fund.history.length>0&&(fund.metricsNavAsOf!==fund.history.at(-1)?.date||fund.metricProvenance?.beta!=='BENCHMARK_PROXY'));const recalculated=staleMetrics.length?await computeFundsInWorker(staleMetrics,riskWindow,riskFree):[];const recalculatedByCode=new Map(recalculated.map(fund=>[fund.code,{...fund,metricsNavAsOf:fund.history.at(-1)?.date}]));const prepared=withOverrides.map(fund=>ensureFundMetricsComputed(recalculatedByCode.get(fund.code)??fund,riskWindow,riskFree));const computed=await computePeerMetricsInWorker(prepared,factors,peerGroup);const {scores,modelHash}=computeScoreArray(computed,factors,peerGroup);writePersistedScoreCache(modelHash,scores,computed,Date.now());await saveFundMetrics(computed);setScoreSavedAt(Date.now());applyRefreshedFunds(computed);setStatus(await sourceStatus());
       void (async()=>{
         let latest=computed;let changed=false;
         try{setAumStatus('Fetching latest published AAUM…');const aum=await ingestLatestAmfiAverageAum(latest);latest=aum.updated;if(aum.records){changed=true;setAumStatus(`${aum.period} · ${aum.records.toLocaleString('en-IN')} scheme AAUM values`);}else setAumStatus(localStorage.getItem('fundscope-amfi-aum-status')||`${aum.period} · AAUM already current`);}
@@ -162,7 +229,7 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
   };
   useEffect(()=>()=>engineClient.terminate(),[engineClient]);
   useEffect(()=>{let alive=true;setEngineReady(false);engineClient.load(funds,getFundIndexBuffer(funds)).then(index=>{if(!alive)return;setCategoryTree(index.categoryTree);setEngineReady(true);setEngineError('');}).catch(error=>{if(alive){setEngineReady(false);setEngineError(errorText(error));}});return()=>{alive=false;};},[engineClient,funds]);
-  useEffect(()=>{if(!engineReady)return;let alive=true;setFilterUpdating(true);const expected=++latestQueryId.current;engineClient.query(screenerFilters,sort,Date.now(),activeModel?factors:[]).then(({result})=>{if(!alive||expected!==latestQueryId.current)return;setEngineResult(result);setFilterUpdating(false);setEngineError('');if(!firstRowsSent.current){firstRowsSent.current=true;finishPerfMeasurement('time to first result window',appStartedAt.current,`${result.indices.length.toLocaleString('en-IN')} matching rows`);performance.mark?.('unlock.firstRows');onFirstRowsRef.current?.();}}).catch(error=>{if(alive&&expected===latestQueryId.current){setFilterUpdating(false);setEngineError(errorText(error));}});return()=>{alive=false;};},[engineClient,engineReady,screenerFilters,sort,activeModel,factors]);
+  useEffect(()=>{if(!engineReady)return;let alive=true;setFilterUpdating(true);const expected=++latestQueryId.current;engineClient.query(screenerFilters,sort,Date.now(),activeModel?factors:[]).then(({result})=>{if(!alive||expected!==latestQueryId.current)return;setEngineResult(result);setFilterUpdating(false);setEngineError('');if(!firstRowsSent.current){firstRowsSent.current=true;finishPerfMeasurement('time to first result window',appStartedAt.current,`${result.indices.length.toLocaleString('en-IN')} matching rows`);performance.mark?.('unlock.firstRows');onFirstRowsRef.current?.();}}).catch(error=>{if(alive&&expected===latestQueryId.current){setFilterUpdating(false);setEngineError(errorText(error));}});return()=>{alive=false;};},[engineClient,engineReady,screenerFilters,sort,activeModel,factors,peerGroup,scoreSyncVersion]);
   const filterResult=useMemo(()=>engineResult?{rows:[],funnel:engineResult.funnel,facets:facetOptionsFromCounts(engineResult.facets)}:computeScreenerView([],screenerFilters),[engineResult,screenerFilters]);
   const categoryOptions=filterResult.facets.categories;
   const amcOptions=filterResult.facets.amcs;
@@ -285,7 +352,116 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
   const sortBy=(id:string)=>setSort(old=>({id,desc:old.id===id?!old.desc:(id==='name'||id==='category'?false:metricRegistry.find(m=>m.id===id)?.direction==='lower'?false:true)}));
   const toggleSelected=(code:number)=>setSelected(old=>old.includes(code)?old.filter(c=>c!==code):old.length>=6?old:[...old,code]);
   const saveScreen=()=>{const name=window.prompt('Name this screen','New screen');if(!name)return;const entry=JSON.stringify({version:5,name,filters:screenerFilters,sort,density,riskWindow,scatter:scatterPreferences});const next=[entry,...savedScreens];setSavedScreens(next);localStorage.setItem('fundscope-screens',JSON.stringify(next));};
-  const saveModel=async()=>{const now=Date.now();const saved:SavedScoreModel={name:modelName.trim()||'Untitled model',factors:factors.map(factor=>({...factor})),peerGroup,savedAt:now,dataAsOf:status.dataAsOf};try{const scored=applyPersistentScores(fundsRef.current,factors,peerGroup);applyRefreshedFunds(scored,{silent:true});await Promise.all([setLocalState('score-model',saved),saveFundMetrics(scored).catch(()=>undefined)]);setModelName(saved.name);setScoreSavedAt(now);setModelSaved(true);if(modelSavedTimer.current!==undefined)window.clearTimeout(modelSavedTimer.current);modelSavedTimer.current=window.setTimeout(()=>setModelSaved(false),2200);}catch(error){setRefreshError(`Could not save score model: ${errorText(error)}`);}};
+  const persistAndSyncModel=async(targetName:string,targetFactors:ScoreFactor[],targetPeerGroup:PeerGroupMode,opTitle:string,opSubtitle:string)=>{
+    const cleanName=targetName.trim()||'Untitled model';
+    const cleanFactors=targetFactors.map(factor=>({...factor}));
+    const now=Date.now();
+    setBackendOp({title:opTitle,subtitle:opSubtitle,badge:'SCORE ENGINE'});
+    await yieldToPaint();
+    try{
+      const {scores,modelHash}=computeScoreArray(fundsRef.current,cleanFactors,targetPeerGroup);
+      await engineClient.updateScores(scores,modelHash).catch(()=>undefined);
+      const scored=applyPersistentScores(fundsRef.current,cleanFactors,targetPeerGroup,{scores,modelHash});
+      applyRefreshedFunds(scored,{silent:true});
+      writePersistedScoreCache(modelHash,scores,fundsRef.current,now);
+      const savedEntry:ScoreModelPreset={
+        id:slugModelId(cleanName),
+        name:cleanName,
+        description:`${cleanFactors.length} factors · ${targetPeerGroup==='subcategory'?'AMFI Sub-category peers':targetPeerGroup==='category_plan'?'Sub-category + Plan':'Whole universe'}`,
+        peerGroup:targetPeerGroup,
+        factors:cleanFactors,
+        builtIn:false,
+        savedAt:now,
+        dataAsOf:status.dataAsOf,
+      };
+      setSavedModels(current=>{
+        const filtered=current.filter(m=>m.id!==savedEntry.id&&normalizeFilterText(m.name)!==normalizeFilterText(savedEntry.name));
+        const next=[savedEntry,...filtered];
+        persistCustomScoreModels(next);
+        return next;
+      });
+      const savedState:SavedScoreModel={id:savedEntry.id,name:cleanName,factors:cleanFactors,peerGroup:targetPeerGroup,savedAt:now,dataAsOf:status.dataAsOf};
+      void setLocalState('score-model',savedState).catch(()=>undefined);
+      void saveFundMetrics(scored).catch(()=>undefined);
+      setModelName(cleanName);
+      setFactors(cleanFactors);
+      setPeerGroup(targetPeerGroup);
+      setScoreSavedAt(now);
+      setScoreSyncVersion(v=>v+1);
+      setModelSaved(true);
+      if(modelSavedTimer.current!==undefined)window.clearTimeout(modelSavedTimer.current);
+      modelSavedTimer.current=window.setTimeout(()=>setModelSaved(false),2400);
+      return true;
+    }catch(error){
+      setRefreshError(`Could not save score model: ${errorText(error)}`);
+      return false;
+    }finally{
+      setBackendOp(null);
+    }
+  };
+  const saveModel=async(customName?:string)=>{
+    const nameToSave=customName??modelName;
+    await persistAndSyncModel(
+      nameToSave,
+      factors,
+      peerGroup,
+      `Saving "${nameToSave.trim()||'Untitled model'}" & persisting scores…`,
+      `Computing peer-normalized percentile + robust z-scores across ${fundsRef.current.length.toLocaleString('en-IN')} schemes and locking model to local storage.`
+    );
+  };
+  const saveAsNewModel=async()=>{
+    const suggested=`${modelName.trim()||'Custom model'} (Copy)`;
+    const prompted=window.prompt('Name for the new score model:',suggested);
+    if(!prompted||!prompted.trim())return;
+    await saveModel(prompted.trim());
+  };
+  const loadModelPreset=(preset:ScoreModelPreset)=>{
+    setModelName(preset.name);
+    setFactors(preset.factors.map(f=>({...f})));
+    setPeerGroup(preset.peerGroup);
+    if(preset.savedAt)setScoreSavedAt(preset.savedAt);
+  };
+  const deleteSavedModel=(id:string)=>{
+    setSavedModels(current=>{
+      const next=current.filter(m=>m.id!==id||m.builtIn);
+      persistCustomScoreModels(next);
+      return next;
+    });
+  };
+  const applyModelToScreener=async(preset?:ScoreModelPreset)=>{
+    const targetName=preset?preset.name:modelName;
+    const targetFactors=preset?preset.factors.map(f=>({...f})):factors;
+    const targetPeerGroup=preset?preset.peerGroup:peerGroup;
+    if(preset){
+      setModelName(targetName);
+      setFactors(targetFactors);
+      setPeerGroup(targetPeerGroup);
+    }
+    const alreadySavedAndCurrent=hasCurrentPersistentScores(fundsRef.current,targetFactors,targetPeerGroup)&&savedModels.some(m=>normalizeFilterText(m.name)===normalizeFilterText(targetName)&&scoreFactorsSignature(m.factors,m.peerGroup)===scoreFactorsSignature(targetFactors,targetPeerGroup));
+    if(!alreadySavedAndCurrent){
+      await persistAndSyncModel(
+        targetName,
+        targetFactors,
+        targetPeerGroup,
+        `Computing & saving "${targetName.trim()||'Untitled model'}" for Screener…`,
+        `Scores were not saved for this model configuration — computing and persisting across ${fundsRef.current.length.toLocaleString('en-IN')} schemes now.`
+      );
+    }else{
+      const targetHash=scoreFactorsSignature(targetFactors,targetPeerGroup);
+      const scores=new Float32Array(fundsRef.current.length).fill(Number.NaN);
+      for(let i=0;i<fundsRef.current.length;i++){
+        const v=fundsRef.current[i]?.metrics?.[SCORE_METRIC_ID];
+        if(typeof v==='number'&&Number.isFinite(v))scores[i]=v;
+      }
+      await engineClient.updateScores(scores,targetHash).catch(()=>undefined);
+      setScoreSyncVersion(v=>v+1);
+    }
+    flushSync(()=>{
+      setActiveModel(true);
+      setSort({id:'score',desc:true});
+    });
+    nav('screener');
+  };
   const exportCsv=()=>exportRows(Array.from(matchIndices,index=>funds[index]).filter((fund):fund is Fund=>Boolean(fund)),status);
   const requestBackfill=async(batchSize=100)=>{const todo:number[]=[];for(const index of matchIndices){const fund=funds[index];if(fund&&historyNeeds(fund))todo.push(fund.code);if(todo.length>=batchSize)break;}await loadHistory(todo,funds);};
   const retryHistory=(codes:number[])=>{const retry=[...new Set(codes)];if(!retry.length||historyRunning)return;for(const code of retry)autoAttemptedHistory.current.delete(code);setUnavailableCodes(current=>{const next=new Set(current);for(const code of retry)next.delete(code);return next;});setHistoryError('');void loadHistory(retry,funds);};
@@ -315,6 +491,14 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
   const nav=(r:Route)=>{const applyRoute=()=>{setRoute(r);setDetail(null);setMobileNavOpen(false);mainContentRef.current?.scrollTo({top:0,behavior:'instant' as ScrollBehavior});};if(r===route){setDetail(null);setMobileNavOpen(false);return;}const transitionDocument=document as Document & {startViewTransition?: (callback:()=>void)=>unknown};if(!transitionDocument.startViewTransition||window.matchMedia('(prefers-reduced-motion: reduce)').matches){applyRoute();return;}try{transitionDocument.startViewTransition(()=>{flushSync(applyRoute);});}catch{applyRoute();}};
   useEffect(()=>{if(!mobileNavOpen)return;const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape')setMobileNavOpen(false);};window.addEventListener('keydown',onKeyDown);return()=>window.removeEventListener('keydown',onKeyDown);},[mobileNavOpen]);
   useEffect(()=>{if(!panelOpen||!window.matchMedia('(max-width: 767px)').matches)return;const panel=filterPanelRef.current;if(!panel)return;const focusable=()=>Array.from(panel.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled]),[tabindex]:not([tabindex="-1"])')).filter(element=>element.offsetParent!==null);focusable()[0]?.focus();const onKeyDown=(event:KeyboardEvent)=>{if(event.key==='Escape'){event.preventDefault();setPanelOpen(false);filterToggleRef.current?.focus();return;}if(event.key!=='Tab')return;const items=focusable();if(!items.length)return;const first=items[0]!,last=items[items.length-1]!;if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}};window.addEventListener('keydown',onKeyDown);return()=>window.removeEventListener('keydown',onKeyDown);},[panelOpen]);
+  const activeBlockingOp:BackendOpState=backendOp
+    ||(refreshing?{title:'Refreshing AMFI mutual fund catalog…',subtitle:refreshStage||'Downloading latest NAVs, computing risk metrics, and updating persistent model scores.',badge:'AMFI CATALOG'}:null)
+    ||(isLoading&&!funds.length?{title:'Initializing FundScope repository…',subtitle:'Hydrating scheme catalog, benchmark mappings, and saved score models.',badge:'LOCAL ENGINE'}:null);
+  const activeBackgroundText=historyRunning
+    ?`Loading NAV histories (${fetchedPct.done}/${fetchedPct.total||'…'})`
+    :/^Fetching/i.test(aumStatus)?aumStatus
+    :/^Fetching/i.test(terStatus)?terStatus
+    :null;
   return <div className="app-shell">
     {isPerfEnabled()&&<aside className="fundscope-perf-hud"><b>Startup and data path · ?perf=1</b>{perfMeasurements.length?perfMeasurements.map(item=><span key={item.name}>{item.name}: {item.milliseconds.toFixed(1)} ms{item.detail?` · ${item.detail}`:''}</span>):<span>Waiting for measured operations…</span>}</aside>}
     <header className="topbar">
@@ -335,7 +519,7 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
           <aside ref={filterPanelRef} className={`filter-panel${panelOpen?'':' collapsed'}`}>
             <div className="filter-head"><div><div className="eyebrow">WORKSPACE</div><button className="saved-select" onClick={()=>document.getElementById('saved-screens')?.classList.toggle('show')}>My screens <ChevronDown size={14}/></button><div id="saved-screens" className="saved-dropdown"><button onClick={()=>{resetFilters();}}>Direct growth · Starter</button><button onClick={()=>{setArrayFacet('categories',['Flexi Cap']);setAddedFilters([{id:'cagr_5y',min:15,max:null,excludeMissing:true}]);}}>Flexi cap focus · Example</button>{savedScreens.map((item,i)=>{const s=parseSavedScreen(item);return s?<button key={`${s.name}-${i}`} onClick={()=>{dispatchFilters({type:'patch',patch:s.filters});setSort(s.sort);setDensity(s.density);setRiskWindow(s.riskWindow);if(s.scatter)setScatterPreferences(s.scatter);}}>{s.name}</button>:null;})}</div></div><button className="icon-button small" title="Save screen" aria-label="Save screen" onClick={saveScreen}><Bookmark size={16}/></button><button type="button" className="icon-button mobile-filter-close" aria-label="Close filters" onClick={()=>setPanelOpen(false)}><X size={17}/></button></div>
             <AppliedFilters filters={appliedFilters} onRemoveValue={removeAppliedValue} onClearFilter={clearAppliedFilter} onClearAll={clearAllWithUndo} placement="sheet" resultCount={matchedCount} resultUpdating={filterUpdating}/>
-            <section className="filter-section"><div className="section-label"><span>UNIVERSE</span><span title="Choose which scheme plans and options to screen."><CircleHelp size={13}/></span></div><div className="universe-row"><span>Plan</span><div className="segmented"><button className={plan==='Direct'?'selected':''} onClick={()=>setPlan('Direct')}>Direct</button><button className={plan==='Regular'?'selected':''} onClick={()=>setPlan('Regular')}>Regular</button><button className={plan==='Both'?'selected':''} onClick={()=>setPlan('Both')}>Both</button></div></div><div className="universe-row"><span>Option</span><select value={option} onChange={e=>setOption(e.target.value)}><option>Growth</option><option>IDCW</option><option>All</option></select></div><div className="universe-row"><span>Risk window <CircleHelp size={12}/></span><div className="segmented risk-segment">{[1,3,5].map(n=><button className={riskWindow===n?'selected':''} key={n} onClick={()=>setRiskWindow(n)}>{n}Y</button>)}</div></div><label className="check-row"><input type="checkbox" checked={hideStaleNav} onChange={e=>setHideStaleNav(e.target.checked)}/> Hide stale NAV data (&gt;10 days)</label></section>
+            <section className="filter-section"><div className="section-label"><span>UNIVERSE</span><span title="Choose which scheme plans and options to screen."><CircleHelp size={13}/></span></div><div className="universe-row"><span>Plan</span><div className="segmented"><button className={plan==='Direct'?'selected':''} onClick={()=>setPlan('Direct')}>Direct</button><button className={plan==='Regular'?'selected':''} onClick={()=>setPlan('Regular')}>Regular</button><button className={plan==='Both'?'selected':''} onClick={()=>setPlan('Both')}>Both</button></div></div><div className="universe-row"><span>Option</span><select value={option} onChange={e=>setOption(e.target.value)}><option>Growth</option><option>IDCW</option><option>All</option></select></div><div className="universe-row"><span>Risk window <CircleHelp size={12}/></span><div className="segmented risk-segment">{[1,3,5].map(n=><button className={riskWindow===n?'selected':''} key={n} onClick={()=>setRiskWindow(n)}>{n}Y</button>)}</div></div><div className="universe-row"><span>Score model</span><select aria-label="Active score model" value={activeModel?slugModelId(modelName):'__off'} onChange={e=>{const val=e.target.value;if(val==='__off'){setActiveModel(false);if(sort.id==='score')setSort({id:'cagr_3y',desc:true});return;}const chosen=savedModels.find(m=>m.id===val||slugModelId(m.name)===val);if(chosen)void applyModelToScreener(chosen);else void applyModelToScreener();}}><option value="__off">Off (hide column)</option>{savedModels.map(m=><option key={m.id} value={m.id}>{m.name}{m.builtIn?' · Preset':' · Saved'}</option>)}</select></div><label className="check-row"><input type="checkbox" checked={hideStaleNav} onChange={e=>setHideStaleNav(e.target.checked)}/> Hide stale NAV data (&gt;10 days)</label></section>
             <section className="filter-section"><div className="section-label"><span>CORE FILTERS</span><button className="link-button" onClick={resetFilters}>Reset all</button></div>
               <MultiChecklist label="Asset class" searchPlaceholder="Search asset classes…" groups={[{label:'Assets',items:['equity','debt','hybrid','solution','commodity','liquid','other']}]} counts={countsForFacet('assetClasses')} selected={screenerFilters.assetClasses} onChange={items=>setArrayFacet('assetClasses',items)}/>
               <CategoryTreeFilter assets={categoryTree} counts={categoryCounts} selected={screenerFilters.categories} onChange={items=>setArrayFacet('categories',items)}/>
@@ -394,13 +578,15 @@ function App({initialFunds,initialSource,onLock,sessionDays='30',onSessionDaysCh
           </section>
         </div>}
         {route==='compare'&&<CompareView funds={funds.filter(f=>selected.includes(f.code))} allFunds={funds} screenerCount={matchedCount} engine={engineClient} scatterPreferences={scatterPreferences} onScatterPreferencesChange={setScatterPreferences} onOpenFund={code=>{const fund=funds.find(item=>item.code===code);if(fund)setDetail(fund);}} onAddCompare={toggleSelected} riskWindow={riskWindow} riskFree={riskFree} dataAsOf={status.dataAsOf} remove={toggleSelected} onBack={()=>nav('screener')} loading={historyRunning} progress={fetchedPct} error={historyError} failedCodes={selected.filter(code=>unavailableCodes.has(code))} onRetry={()=>retryHistory(selected.filter(code=>unavailableCodes.has(code)))}/>}
-        {route==='score'&&<ScoreLab allFunds={funds} rows={filtered} factors={factors} setFactors={setFactors} peerGroup={peerGroup} setPeerGroup={setPeerGroup} modelName={modelName} setModelName={setModelName} onSave={()=>void saveModel()} modelSaved={modelSaved} scoreSavedAt={scoreSavedAt} dataAsOf={status.dataAsOf} onOpenFund={fund=>setDetail(fund)} apply={()=>{void saveModel();setActiveModel(true);setSort({id:'score',desc:true});nav('screener');}}/>}
+        {route==='score'&&<ScoreLab allFunds={funds} rows={filtered} factors={factors} setFactors={setFactors} peerGroup={peerGroup} setPeerGroup={setPeerGroup} modelName={modelName} setModelName={setModelName} savedModels={savedModels} activeModel={activeModel} onSave={()=>void saveModel()} onSaveAsNew={()=>void saveAsNewModel()} onLoadModel={loadModelPreset} onDeleteModel={deleteSavedModel} modelSaved={modelSaved} scoreSavedAt={scoreSavedAt} dataAsOf={status.dataAsOf} onOpenFund={fund=>setDetail(fund)} apply={(preset)=>void applyModelToScreener(preset)}/>}
         {route==='health'&&<HealthView status={status} aumStatus={aumStatus} terStatus={terStatus} refreshing={refreshing} refresh={()=>void refresh()} error={refreshError} historyError={historyError} failedCodes={scopedFunds.filter(fund=>unavailableCodes.has(fund.code)).map(fund=>fund.code)} retryHistory={retryHistory} stage={refreshStage} funds={funds} historyScope={scopedFunds} coverage={snapshotCoverage} backfill={requestBackfill} progress={fetchedPct} historyRunning={historyRunning} historyPaused={historyPaused} toggleHistoryPause={toggleHistoryPause}/>}
-        {route==='governance'&&<ClassificationGovernance funds={funds} onReview={async(code,action)=>{await recordClassificationDecision(code,action);setFunds(await getFunds());}} onRerun={async()=>{setFunds(await rerunClassification());}}/>}
+        {route==='governance'&&<ClassificationGovernance funds={funds} onReview={async(code,action)=>{setBackendOp({title:'Recording classification decision…',subtitle:`Updating scheme #${code} and refreshing taxonomy bindings.`,badge:'TAXONOMY ENGINE'});await yieldToPaint();try{await recordClassificationDecision(code,action);setFunds(await getFunds());}finally{setBackendOp(null);}}} onRerun={async()=>{setBackendOp({title:'Re-running classification rules…',subtitle:'Evaluating S0–S4 source observations across all mutual fund schemes.',badge:'TAXONOMY ENGINE'});await yieldToPaint();try{setFunds(await rerunClassification());}finally{setBackendOp(null);}}}/>}
         {route==='settings'&&<SettingsView theme={theme} setTheme={setTheme} riskFree={riskFree} density={density} setDensity={setDensity} hosted={hostedWeb} status={status} snapshotUpdate={snapshotUpdate} onApplySnapshotUpdate={onApplySnapshotUpdate} onLock={onLock} sessionDays={sessionDays} onSessionDaysChange={onSessionDaysChange}/>}
       </main>
       {undoToast&&<div className="filter-undo-toast" role="status" aria-live="polite"><span>Filters cleared.</span><button type="button" onClick={undoClearAll}>Undo</button><button type="button" className="filter-chip-remove" aria-label="Dismiss undo message" onClick={()=>{setUndoToast(false);undoFiltersRef.current=null;}}><X size={14}/></button></div>}
+      {activeBackgroundText&&!activeBlockingOp&&<div className="backend-activity-pill" role="status" aria-live="polite"><RefreshCw size={13} className="spin"/><span>{activeBackgroundText}</span></div>}
     </div>
+    {activeBlockingOp&&<div className="backend-loading-backdrop" role="status" aria-live="assertive" aria-busy="true"><div className="backend-loading-modal"><div className="backend-loading-spinner"><RefreshCw size={22} className="spin"/></div><div className="backend-loading-body">{activeBlockingOp.badge&&<span className="eyebrow">{activeBlockingOp.badge}</span>}<h3>{activeBlockingOp.title}</h3><p>{activeBlockingOp.subtitle}</p><div className="backend-loading-bar"><i/></div></div></div></div>}
     {detail&&<FundDrawer fund={funds.find(fund=>fund.code===detail.code)??detail} unavailable={unavailableCodes.has(detail.code)} loading={historyRunning} onRetryHistory={()=>retryHistory([detail.code])} onClose={()=>setDetail(null)} inCompare={selected.includes(detail.code)} onCompare={()=>{toggleSelected(detail.code);}} riskWindow={riskWindow} riskFree={riskFree}/>}
     <footer className="safety-footer">For personal research. Not investment advice. Verify source data before acting.</footer>
   </div>;
@@ -660,20 +846,95 @@ function GrowthChart({funds,loading=false,showRangeSelector=true}:{funds:Fund[],
   </div>;
 }
 function ScatterPlot({funds}:{funds:Fund[]}){const eligible=funds.filter(f=>f.metrics.std_dev!=null&&f.metrics.cagr_3y!=null);if(!eligible.length)return <div className="chart-empty"><Activity size={22}/><span>Risk-return view appears after history is available.</span></div>;const xs=eligible.map(f=>f.metrics.std_dev!),ys=eligible.map(f=>f.metrics.cagr_3y!);const xmin=Math.min(...xs),xmax=Math.max(...xs),ymin=Math.min(...ys),ymax=Math.max(...ys);return <svg className="scatter-chart" viewBox="0 0 420 220" role="img" aria-label="Risk versus return scatter plot"><path d="M48 20V180H400" className="chart-axis"/>{eligible.map((f,i)=><g key={f.code}><circle cx={55+(f.metrics.std_dev!-xmin)/(xmax-xmin||1)*330} cy={170-(f.metrics.cagr_3y!-ymin)/(ymax-ymin||1)*140} r="6" fill={colorPalette[i]} opacity=".84"/><title>{f.name} · {f.metrics.std_dev?.toFixed(2)}% risk · {f.metrics.cagr_3y?.toFixed(2)}% return</title></g>)}<text x="160" y="210" className="axis-label">3Y volatility →</text><text transform="translate(15 135) rotate(-90)" className="axis-label">3Y CAGR →</text></svg>}
-function ScoreLab({allFunds,rows,factors,setFactors,peerGroup,setPeerGroup,modelName,setModelName,onSave,modelSaved,scoreSavedAt,dataAsOf,onOpenFund,apply}:{allFunds:Fund[],rows:Fund[],factors:ScoreFactor[],setFactors:(v:ScoreFactor[])=>void,peerGroup:PeerGroupMode,setPeerGroup:(v:PeerGroupMode)=>void,modelName:string,setModelName:(v:string)=>void,onSave:()=>void,modelSaved:boolean,scoreSavedAt:number|null,dataAsOf:number|null,onOpenFund:(fund:Fund)=>void,apply:()=>void}){
-  const isSavedCurrent=useMemo(()=>hasCurrentPersistentScores(allFunds,factors,peerGroup),[allFunds,factors,peerGroup]);
-  const rankedByCode=useMemo(()=>{
-    const universeRanked=rankFunds(allFunds,factors,{peerGroup,useSavedScores:isSavedCurrent,robustMagnitude:true});
-    return new Map(universeRanked.map(item=>[item.fund.code,item]));
-  },[allFunds,factors,peerGroup,isSavedCurrent]);
-  const ranked=useMemo(()=>rows.map(fund=>rankedByCode.get(fund.code)??{fund,score:fund.metrics?.composite_score??null,contributions:{}}).filter(item=>item.score!==null&&Number.isFinite(item.score)).sort((a,b)=>(b.score??-1)-(a.score??-1)).slice(0,25),[rows,rankedByCode]);
-  const scoredCount=useMemo(()=>rows.filter(fund=>{const s=rankedByCode.get(fund.code)?.score;return s!==null&&s!==undefined&&Number.isFinite(s);}).length,[rows,rankedByCode]);
+function ScoreLab({allFunds,rows,factors,setFactors,peerGroup,setPeerGroup,modelName,setModelName,savedModels,activeModel,onSave,onSaveAsNew,onLoadModel,onDeleteModel,modelSaved,scoreSavedAt,dataAsOf,onOpenFund,apply}:{allFunds:Fund[],rows:Fund[],factors:ScoreFactor[],setFactors:(v:ScoreFactor[])=>void,peerGroup:PeerGroupMode,setPeerGroup:(v:PeerGroupMode)=>void,modelName:string,setModelName:(v:string)=>void,savedModels:ScoreModelPreset[],activeModel:boolean,onSave:()=>void,onSaveAsNew:()=>void,onLoadModel:(preset:ScoreModelPreset)=>void,onDeleteModel:(id:string)=>void,modelSaved:boolean,scoreSavedAt:number|null,dataAsOf:number|null,onOpenFund:(fund:Fund)=>void,apply:(preset?:ScoreModelPreset)=>void}){
+  const deferredFactors=useDeferredValue(factors);
+  const deferredPeerGroup=useDeferredValue(peerGroup);
+  const currentSig=useMemo(()=>scoreFactorsSignature(factors,peerGroup),[factors,peerGroup]);
+  const isSavedCurrent=useMemo(()=>hasCurrentPersistentScores(allFunds,deferredFactors,deferredPeerGroup),[allFunds,deferredFactors,deferredPeerGroup]);
+  const scoreByCode=useMemo(()=>{
+    const map=new Map<number,number>();
+    if(isSavedCurrent){
+      for(const fund of allFunds){
+        const val=fund.metrics?.[SCORE_METRIC_ID];
+        if(typeof val==='number'&&Number.isFinite(val))map.set(fund.code,val);
+      }
+      return map;
+    }
+    const {scores}=computeScoreArray(allFunds,deferredFactors,deferredPeerGroup);
+    for(let i=0;i<allFunds.length;i++){
+      const val=scores[i]!;
+      if(Number.isFinite(val))map.set(allFunds[i]!.code,val);
+    }
+    return map;
+  },[allFunds,deferredFactors,deferredPeerGroup,isSavedCurrent]);
+  const ranked=useMemo(()=>rows.map(fund=>({fund,score:scoreByCode.get(fund.code)??null})).filter(item=>item.score!==null&&Number.isFinite(item.score)).sort((a,b)=>(b.score??-1)-(a.score??-1)).slice(0,25),[rows,scoreByCode]);
+  const scoredCount=useMemo(()=>rows.filter(fund=>scoreByCode.has(fund.code)).length,[rows,scoreByCode]);
   const total=factors.reduce((a,b)=>a+b.weight,0);
   const add=(id:string)=>setFactors([...factors,{id,weight:20,direction:metricRegistry.find(m=>m.id===id)?.direction==='lower'?'lower':'higher'}]);
+  const peerGroupLabel=(mode:PeerGroupMode)=>mode==='subcategory'?'Sub-category peers':mode==='category_plan'?'Sub-category + Plan':'Whole universe';
   const statusLabel=isSavedCurrent
     ?`Scores saved · computed with daily refresh${dataAsOf?` (as of ${formatEpochMs(dataAsOf)})`:scoreSavedAt?` (${timestampText(scoreSavedAt)})`:''}`
     :'Unsaved weight changes · click Save or Apply to persist scores';
-  return <div className="subpage score-layout"><div className="subpage-heading"><div><div className="eyebrow">PERSISTENT MULTI-FACTOR RANKING</div><h1>Build your <span>score model.</span></h1><p>Scores are precomputed in the backend and locked on daily refresh so they never shift when viewing NAV charts or changing filters.</p></div><div className="heading-actions"><button type="button" className="button secondary" onClick={onSave}><Bookmark size={15}/> {modelSaved?'Saved locally':'Save scores'}</button><button type="button" className="button primary" onClick={apply}><Sparkles size={15}/> Apply to screener</button></div></div><div className="score-workspace"><section className="model-builder"><div className="builder-title"><div><span className="eyebrow">MODEL BUILDER · {statusLabel}</span><h2>Factors and weights</h2></div><button type="button" className="icon-button small" title={modelSaved?"Saved locally":"Save model"} aria-label={modelSaved?"Model saved locally":"Save model"} onClick={event=>{event.preventDefault();event.stopPropagation();onSave();}}>{modelSaved?<Check size={15}/>:<Bookmark size={15}/>}</button></div><label className="form-label">Model name<input value={modelName} onChange={e=>setModelName(e.target.value)}/></label><div className="share-bar">{factors.map((f,i)=><span key={f.id} style={{width:`${total?f.weight/total*100:0}%`,background:colorPalette[i]}} title={metricRegistry.find(m=>m.id===f.id)?.label}/>)}</div>{factors.map((factor,i)=>{const metric=metricRegistry.find(m=>m.id===factor.id)!;return <div className="factor-row" key={factor.id}><div className="factor-name"><i style={{background:colorPalette[i]}}/><span><b>{metric.label}</b><small>{metric.group} · {metric.description}</small></span><button className="remove-filter" onClick={()=>setFactors(factors.filter(f=>f.id!==factor.id))}><X size={13}/></button></div><div className="factor-controls"><select value={factor.direction} onChange={e=>setFactors(factors.map(f=>f.id===factor.id?{...f,direction:e.target.value as 'higher'|'lower'}:f))}><option value="higher">↑ Higher is better</option><option value="lower">↓ Lower is better</option></select><input type="range" min="0" max="100" value={factor.weight} onChange={e=>setFactors(factors.map(f=>f.id===factor.id?{...f,weight:Number(e.target.value)}:f))}/><input className="weight-input" type="number" min="0" max="100" value={factor.weight} onChange={e=>setFactors(factors.map(f=>f.id===factor.id?{...f,weight:Number(e.target.value)}:f))}/><span className="factor-share">{total?Math.round(factor.weight/total*100):0}%</span></div></div>})}<select className="add-factor-select" value="" onChange={e=>e.target.value&&add(e.target.value)}><option value="">+ Add a score factor</option>{metricRegistry.filter(m=>m.availability!=='unavailable'&&!factors.some(f=>f.id===m.id)).map(m=><option key={m.id} value={m.id}>{m.label} · {m.group}</option>)}</select><div className="peer-group"><div><b>Peer group normalization</b><small>Tie-aware percentile + winsorized z-score across canonical peers.</small></div><select value={peerGroup} onChange={e=>setPeerGroup(e.target.value as PeerGroupMode)}><option value="subcategory">AMFI Sub-category peers (recommended)</option><option value="category_plan">Sub-category + Plan</option><option value="universe">Whole universe</option></select></div><div className="policy-note"><CircleHelp size={15}/><span>Missing metric values score 0, and factor weights are never redistributed. Scores are computed once per daily refresh and cached locally.</span></div><p className="safety-note">Scores rank funds relative to peers using your weights. They are not a prediction or advice.</p></section><section className="preview-panel"><div className="builder-title"><div><span className="eyebrow">PERSISTENT SCORE LEADERBOARD</span><h2>Ranked funds</h2></div><span className="preview-count">{scoredCount.toLocaleString('en-IN')} scored of {rows.length.toLocaleString('en-IN')} in view</span></div><div className="preview-head"><span>RANK</span><span>FUND</span><span className="numeric">SCORE</span></div>{ranked.map(({fund,score},i)=><div className="preview-row" key={fund.code} onClick={()=>onOpenFund(fund)} style={{cursor:'pointer'}} title="Open scheme details"><span className="rank-number">{String(i+1).padStart(2,'0')}</span><div className="preview-fund"><b>{fund.name}</b><small>{fund.subCategory} · {fund.plan}</small></div><div className="preview-score"><b>{score?.toFixed(1)??'—'}</b><div className="mini-score-track"><i style={{width:`${score??0}%`}}/></div></div></div>)}{!ranked.length&&<div className="chart-empty">No scored schemes match the active screener filters.</div>}</section></div></div>;
+  return <div className="subpage score-layout">
+    <div className="subpage-heading">
+      <div>
+        <div className="eyebrow">PERSISTENT MULTI-FACTOR RANKING</div>
+        <h1>Build your <span>score model.</span></h1>
+        <p>Scores are precomputed in the backend and locked on daily refresh so they never shift when viewing NAV charts or changing filters.</p>
+      </div>
+      <div className="heading-actions">
+        <button type="button" className="button secondary" onClick={onSaveAsNew} title="Save current weights as a new named model"><Plus size={15}/> Save as new</button>
+        <button type="button" className="button secondary" onClick={onSave}><Bookmark size={15}/> {modelSaved?'Saved locally':'Save scores'}</button>
+        <button type="button" className="button primary" onClick={()=>apply()}><Sparkles size={15}/> Apply to screener</button>
+      </div>
+    </div>
+    <section className="saved-models-section" aria-label="Saved score models">
+      <div className="builder-title">
+        <div>
+          <span className="eyebrow">MODEL LIBRARY · {savedModels.filter(m=>!m.builtIn).length} CUSTOM SAVED · {savedModels.filter(m=>m.builtIn).length} INSTITUTIONAL PRESETS</span>
+          <h2>Saved models &amp; presets</h2>
+        </div>
+        <span className="preview-count">{activeModel?`Active in Screener: ${modelName}`:'Select a model to edit or apply directly to Screener'}</span>
+      </div>
+      <div className="saved-models-grid">
+        {savedModels.map(preset=>{
+          const presetSig=scoreFactorsSignature(preset.factors,preset.peerGroup);
+          const isEditing=presetSig===currentSig&&normalizeFilterText(preset.name)===normalizeFilterText(modelName);
+          const isScreenerActive=activeModel&&isEditing;
+          const presetTotal=preset.factors.reduce((sum,f)=>sum+Math.max(0,f.weight),0);
+          return <article key={preset.id} className={`saved-model-card${isEditing?' is-editing':''}${isScreenerActive?' is-active-screener':''}`}>
+            <div className="saved-model-head">
+              <div>
+                <div className="saved-model-badges">
+                  <span className={`saved-model-badge ${preset.builtIn?'preset':'custom'}`}>{preset.builtIn?'Preset':'Saved'}</span>
+                  <span className="saved-model-badge peer">{peerGroupLabel(preset.peerGroup)}</span>
+                  {isScreenerActive&&<span className="saved-model-badge active"><Check size={11}/> Active in Screener</span>}
+                  {!isScreenerActive&&isEditing&&<span className="saved-model-badge editing">Loaded in Builder</span>}
+                </div>
+                <h3>{preset.name}</h3>
+                <p>{preset.description}</p>
+              </div>
+              {!preset.builtIn&&<button type="button" className="icon-button tiny" title={`Delete ${preset.name}`} aria-label={`Delete ${preset.name}`} onClick={()=>onDeleteModel(preset.id)}><Trash2 size={14}/></button>}
+            </div>
+            <div className="saved-model-factors">
+              {preset.factors.map((f,idx)=>{
+                const m=metricRegistry.find(item=>item.id===f.id);
+                const pctShare=presetTotal?Math.round(f.weight/presetTotal*100):0;
+                return <span key={f.id} className="saved-factor-pill"><i style={{background:colorPalette[idx%colorPalette.length]}}/>{m?.label??f.id} <b>{pctShare}%</b></span>;
+              })}
+            </div>
+            <div className="saved-model-foot">
+              <small>{preset.savedAt?`Saved ${timestampText(preset.savedAt)}`:'Institutional default weights'}</small>
+              <div className="saved-model-actions">
+                <button type="button" className="button small secondary" onClick={()=>onLoadModel(preset)}>{isEditing?'Loaded':'Load weights'}</button>
+                <button type="button" className="button small primary" onClick={()=>apply(preset)}><Sparkles size={13}/> Apply to screener</button>
+              </div>
+            </div>
+          </article>;
+        })}
+      </div>
+    </section>
+    <div className="score-workspace"><section className="model-builder"><div className="builder-title"><div><span className="eyebrow">MODEL BUILDER · {statusLabel}</span><h2>Factors and weights</h2></div><button type="button" className="icon-button small" title={modelSaved?"Saved locally":"Save model"} aria-label={modelSaved?"Model saved locally":"Save model"} onClick={event=>{event.preventDefault();event.stopPropagation();onSave();}}>{modelSaved?<Check size={15}/>:<Bookmark size={15}/>}</button></div><label className="form-label">Model name<input value={modelName} onChange={e=>setModelName(e.target.value)}/></label><div className="share-bar">{factors.map((f,i)=><span key={f.id} style={{width:`${total?f.weight/total*100:0}%`,background:colorPalette[i]}} title={metricRegistry.find(m=>m.id===f.id)?.label}/>)}</div>{factors.map((factor,i)=>{const metric=metricRegistry.find(m=>m.id===factor.id)!;return <div className="factor-row" key={factor.id}><div className="factor-name"><i style={{background:colorPalette[i]}}/><span><b>{metric.label}</b><small>{metric.group} · {metric.description}</small></span><button className="remove-filter" onClick={()=>setFactors(factors.filter(f=>f.id!==factor.id))}><X size={13}/></button></div><div className="factor-controls"><select value={factor.direction} onChange={e=>setFactors(factors.map(f=>f.id===factor.id?{...f,direction:e.target.value as 'higher'|'lower'}:f))}><option value="higher">↑ Higher is better</option><option value="lower">↓ Lower is better</option></select><input type="range" min="0" max="100" value={factor.weight} onChange={e=>setFactors(factors.map(f=>f.id===factor.id?{...f,weight:Number(e.target.value)}:f))}/><input className="weight-input" type="number" min="0" max="100" value={factor.weight} onChange={e=>setFactors(factors.map(f=>f.id===factor.id?{...f,weight:Number(e.target.value)}:f))}/><span className="factor-share">{total?Math.round(factor.weight/total*100):0}%</span></div></div>})}<select className="add-factor-select" value="" onChange={e=>e.target.value&&add(e.target.value)}><option value="">+ Add a score factor</option>{metricRegistry.filter(m=>m.availability!=='unavailable'&&!factors.some(f=>f.id===m.id)).map(m=><option key={m.id} value={m.id}>{m.label} · {m.group}</option>)}</select><div className="peer-group"><div><b>Peer group normalization</b><small>Tie-aware percentile + winsorized z-score across canonical peers.</small></div><select value={peerGroup} onChange={e=>setPeerGroup(e.target.value as PeerGroupMode)}><option value="subcategory">AMFI Sub-category peers (recommended)</option><option value="category_plan">Sub-category + Plan</option><option value="universe">Whole universe</option></select></div><div className="policy-note"><CircleHelp size={15}/><span>Missing metric values score 0, and factor weights are never redistributed. Scores are computed once per daily refresh and cached locally.</span></div><p className="safety-note">Scores rank funds relative to peers using your weights. They are not a prediction or advice.</p></section><section className="preview-panel"><div className="builder-title"><div><span className="eyebrow">PERSISTENT SCORE LEADERBOARD</span><h2>Ranked funds</h2></div><span className="preview-count">{scoredCount.toLocaleString('en-IN')} scored of {rows.length.toLocaleString('en-IN')} in view</span></div><div className="preview-head"><span>RANK</span><span>FUND</span><span className="numeric">SCORE</span></div>{ranked.map(({fund,score},i)=><div className="preview-row" key={fund.code} onClick={()=>onOpenFund(fund)} style={{cursor:'pointer'}} title="Open scheme details"><span className="rank-number">{String(i+1).padStart(2,'0')}</span><div className="preview-fund"><b>{fund.name}</b><small>{fund.subCategory} · {fund.plan}</small></div><div className="preview-score"><b>{score?.toFixed(1)??'—'}</b><div className="mini-score-track"><i style={{width:`${score??0}%`}}/></div></div></div>)}{!ranked.length&&<div className="chart-empty">No scored schemes match the active screener filters.</div>}</section></div></div>;
 }
 function HealthView({status,aumStatus,terStatus,refreshing,refresh,error,historyError,failedCodes,retryHistory,stage,funds,historyScope,coverage,backfill,progress,historyRunning,historyPaused,toggleHistoryPause}:{status:SourceState,aumStatus:string,terStatus:string,refreshing:boolean,refresh:()=>void,error:string,historyError:string,failedCodes:number[],retryHistory:(codes:number[])=>void,stage:string,funds:Fund[],historyScope:Fund[],coverage:{open_direct_growth?:{total:number;with_history:number};all?:{total:number;with_history:number};failed?:number;pending?:number;last_run?:string}|null,backfill:(batchSize?:number)=>void,progress:{done:number,total:number},historyRunning:boolean,historyPaused:boolean,toggleHistoryPause:()=>void}){
   const unresolvedBenchmarks=benchmarkConfig?.benchmarks.filter(item=>item.status==='unresolved').length??0;

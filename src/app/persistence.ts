@@ -161,9 +161,9 @@ export async function loadFundDetails(code:number):Promise<Partial<Fund>>{
   try{return JSON.parse(rows[0].payload) as Partial<Fund>;}catch{return {};}
 }
 export async function saveFundMetrics(funds:Fund[]):Promise<void>{
-  if(!isTauri()){await saveFunds(funds);return;}
+  if(!isTauri()){await saveFunds(funds,undefined,{skipTaxonomyObservation:true});return;}
   await waitForNormalizedStorage();
-  if(!normalizedStoreReady){await saveFunds(funds);return;}
+  if(!normalizedStoreReady){await saveFunds(funds,undefined,{skipTaxonomyObservation:true});return;}
   await invoke('write_normalized_funds',{records:funds.map(fund=>({code:fund.code,metrics:Object.entries(fund.metrics??{}).map(([metricId,value])=>({metricId,value:typeof value==='number'&&Number.isFinite(value)?value:null,reasonCode:fund.metricReasons?.[metricId]??null}))})),metricsOnly:true});
 }
 export interface SchemeMasterRecord {schemeCode:number;name:string;amc:string;categoryRaw:string;headerRaw:string;structure:ParsedSchemeRow['structure'];plan:string|null;option:string|null;isinA:string|null;isinB:string|null;nav:number|null;navDate:number|null;amfiSchemeMaster?:ParsedAmfiSchemeMasterRow;assetClass:Fund['assetClass'];classRuleId:string;classStatus:NonNullable<Fund['classStatus']>;classDetail:Fund['classDetail'];taxonomyVersion:number;firstSeenAt:number;lastSeenAt:number}

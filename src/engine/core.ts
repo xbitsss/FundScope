@@ -1,7 +1,7 @@
 import type { Fund } from '../domain/types';
 import { arrayFacets, fixedValues, ordered, type ArrayFacet, type FacetOption, type ScreenerFilters, type ScreenerFacet } from '../domain/screener/filters';
 import { normalizeFilterText } from '../domain/search/normalize';
-import { rankFunds, SCORE_METRIC_ID, SCORE_MODEL_HASH_METRIC_ID, scoreFactorsSignature, type ScoreFactor } from '../domain/scoring/engine';
+import { computeScoreArray, SCORE_METRIC_ID, SCORE_MODEL_HASH_METRIC_ID, scoreFactorsSignature, type ScoreFactor } from '../domain/scoring/engine';
 import { computeScatterQuery, type ScatterQueryOptions, type ScatterQueryResult } from '../domain/scatter/scatterQuery';
 
 export interface EngineSort { id: string; desc: boolean }
@@ -64,6 +64,7 @@ export class ScreenerEngine {
   private readonly navDates: Float64Array;
   private readonly sortCache = new Map<string, Uint32Array>();
   private readonly scoreCache = new Map<number, Float32Array>();
+  private updatedModelHash: number | null = null;
 
   constructor(funds: Fund[], onProfile?: (phase: string, milliseconds: number) => void) {
     this.funds = funds;
@@ -246,6 +247,36 @@ export class ScreenerEngine {
     });
     const result = Uint32Array.from(order); this.sortCache.set(cacheKey, result); return result;
   }
+  updateScores(scores: Float32Array, modelHash: number): void {
+    let scoreCol = this.metricColumns.get(SCORE_METRIC_ID);
+    if (!scoreCol) {
+      scoreCol = { values: new Float64Array(this.size).fill(Number.NaN), reasons: new Uint8Array(this.size) };
+      this.metricColumns.set(SCORE_METRIC_ID, scoreCol);
+    }
+    let hashCol = this.metricColumns.get(SCORE_MODEL_HASH_METRIC_ID);
+    if (!hashCol) {
+      hashCol = { values: new Float64Array(this.size).fill(Number.NaN), reasons: new Uint8Array(this.size) };
+      this.metricColumns.set(SCORE_MODEL_HASH_METRIC_ID, hashCol);
+    }
+    const n = Math.min(this.size, scores.length);
+    for (let i = 0; i < n; i++) {
+      const val = scores[i]!;
+      scoreCol.values[i] = Number.isFinite(val) ? val : Number.NaN;
+      scoreCol.reasons[i] = Number.isFinite(val) ? 0 : 1;
+      hashCol.values[i] = modelHash;
+      const fund = this.funds[i];
+      if (fund) {
+        fund.metrics = { ...fund.metrics, [SCORE_METRIC_ID]: Number.isFinite(val) ? val : null, [SCORE_MODEL_HASH_METRIC_ID]: modelHash };
+      }
+    }
+    this.updatedModelHash = modelHash;
+    this.scoreCache.clear();
+    this.scoreCache.set(modelHash, scores.slice());
+    for (const key of this.sortCache.keys()) {
+      if (key.startsWith('score:')) this.sortCache.delete(key);
+    }
+  }
+
   private computeScores(factors: ScoreFactor[], sig: number): Float32Array {
     const cached = this.scoreCache.get(sig);
     if (cached && cached.buffer.byteLength > 0) return cached.slice();
@@ -256,11 +287,17 @@ export class ScreenerEngine {
     const savedScoreCol = this.metricColumns.get(SCORE_METRIC_ID)?.values;
     const savedHashCol = this.metricColumns.get(SCORE_MODEL_HASH_METRIC_ID)?.values;
     if (savedScoreCol) {
+      const validHashes = new Set<number>([
+        sig,
+        scoreFactorsSignature(factors, 'category_plan'),
+        scoreFactorsSignature(factors, 'universe'),
+        ...(this.updatedModelHash !== null ? [this.updatedModelHash] : []),
+      ]);
       let hasMatchingSaved = false;
       for (let i = 0; i < this.size; i++) {
         if (Number.isFinite(savedScoreCol[i])) {
           const hashVal = savedHashCol?.[i];
-          if (hashVal === undefined || !Number.isFinite(hashVal) || Math.round(hashVal) === sig) {
+          if (hashVal === undefined || !Number.isFinite(hashVal) || validHashes.has(Math.round(hashVal))) {
             hasMatchingSaved = true;
           }
           break;
@@ -276,15 +313,9 @@ export class ScreenerEngine {
       }
     }
 
-    const ranked = rankFunds(this.funds, factors, { peerGroup: 'subcategory', robustMagnitude: true });
-    for (let i = 0; i < this.size; i++) {
-      const s = ranked[i]?.score;
-      if (s !== null && s !== undefined && Number.isFinite(s)) {
-        scores[i] = s;
-      }
-    }
-    this.scoreCache.set(sig, scores);
-    return scores.slice();
+    const computed = computeScoreArray(this.funds, factors, 'subcategory').scores;
+    this.scoreCache.set(sig, computed);
+    return computed.slice();
   }
 }
 
