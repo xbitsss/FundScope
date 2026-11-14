@@ -87,7 +87,7 @@ body {
 .app-shell .skeleton {
   display: block;
   border-radius: var(--radius-control);
-  background: linear-gradient(100deg, var(--surface-2) 20%, color-mix(in srgb, var(--border) 72%, var(--surface)) 45%, var(--surface-2) 70%);
+  background: linear-gradient(100deg, var(--skeleton-base) 20%, var(--skeleton-highlight) 45%, var(--skeleton-base) 70%);
   background-size: 220% 100%;
   animation: shimmer 1.2s linear infinite;
 }
