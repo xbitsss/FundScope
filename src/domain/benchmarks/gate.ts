@@ -36,14 +36,34 @@ function approve(input:ApprovedInput):GateApproved|ReasonDetail{
   return {[gateBrand]:true,input,aligned,overlapDays:aligned.nObs};
 }
 
+function computeRollingOutperformanceRatio(rf:Float64Array,rb:Float64Array):number|null{
+  const n=rf.length;
+  const windowSize=n>=250?250:n>=60?60:0;
+  if(windowSize===0||n<windowSize)return null;
+  const logDiff=new Float64Array(n+1);
+  for(let i=0;i<n;i++){
+    const fLog=Math.log(Math.max(1e-9,1+rf[i]!));
+    const bLog=Math.log(Math.max(1e-9,1+rb[i]!));
+    logDiff[i+1]=logDiff[i]!+(fLog-bLog);
+  }
+  let wins=0;
+  let total=0;
+  for(let end=windowSize;end<=n;end++){
+    total++;
+    if(logDiff[end]!-logDiff[end-windowSize]!>0)wins++;
+  }
+  return total>0?(wins/total)*100:null;
+}
+
 export function runBenchmarkRegression(approved:GateApproved):RegressionGateResult{
   const stats=regressionStats(approved.aligned.rf,approved.aligned.rb,approved.input.riskFreeRate);if(!stats)return failure({code:'ZERO_DENOMINATOR',cause:'REGRESSION_DENOMINATOR'},approved.overlapDays);
-  const metrics:Record<string,number|null>={beta:stats.beta,r_squared:stats.rSquared,jensen_alpha:stats.alpha,treynor:stats.treynor,information_ratio:stats.informationRatio,tracking_error:stats.trackingError,upside_capture:stats.upsideCapture,downside_capture:stats.downsideCapture,benchmark_overlap_days:approved.overlapDays,benchmark_outperformance_ratio:null};
+  const outperformance=computeRollingOutperformanceRatio(approved.aligned.rf,approved.aligned.rb);
+  const metrics:Record<string,number|null>={beta:stats.beta,r_squared:stats.rSquared,jensen_alpha:stats.alpha,treynor:stats.treynor,information_ratio:stats.informationRatio,tracking_error:stats.trackingError,upside_capture:stats.upsideCapture,downside_capture:stats.downsideCapture,benchmark_overlap_days:approved.overlapDays,benchmark_outperformance_ratio:outperformance};
   const reasons:Record<string,MetricReason>={};const reasonDetails:Record<string,ReasonDetail>={};
   if(stats.treynor===null){reasons.treynor='ZERO_DENOMINATOR';reasonDetails.treynor={code:'ZERO_DENOMINATOR',cause:'BETA_ZERO'};}
   if(stats.informationRatio===null){reasons.information_ratio='ZERO_DENOMINATOR';reasonDetails.information_ratio={code:'ZERO_DENOMINATOR',cause:'ACTIVE_VARIANCE_ZERO'};}
   for(const id of ['upside_capture','downside_capture'] as const)if(metrics[id]===null){reasons[id]='TOO_FEW_SAMPLES';reasonDetails[id]={code:'TOO_FEW_SAMPLES',cause:'RETURN_REGIME_SAMPLE_COUNT'};}
-  reasons.benchmark_outperformance_ratio='INSUFFICIENT_HISTORY';reasonDetails.benchmark_outperformance_ratio={code:'INSUFFICIENT_HISTORY',cause:'OVERLAP_BELOW_MIN',required:250,actual:0,unit:'windows',window:`${approved.input.riskWindow}y` as '1y'|'3y'|'5y'};
+  if(outperformance===null){reasons.benchmark_outperformance_ratio='INSUFFICIENT_HISTORY';reasonDetails.benchmark_outperformance_ratio={code:'INSUFFICIENT_HISTORY',cause:'OVERLAP_BELOW_MIN',required:60,actual:approved.overlapDays,unit:'days',window:`${approved.input.riskWindow}y` as '1y'|'3y'|'5y'};}
   const flags:string[]=[];if(stats.lowR2)flags.push('LOW_R2');if(approved.input.fund.assetClass==='equity'&&stats.betaOutlier)flags.push('BETA_OUTLIER');if(approved.input.fit==='broad_approx')flags.push('PROXY_APPROX');
   return {metrics,reasons,reasonDetails,flags,overlapDays:approved.overlapDays};
 }

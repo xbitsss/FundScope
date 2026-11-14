@@ -8,6 +8,7 @@ import { backfillSelectedHistory } from './refresh';
 import { getNavHistory, saveFunds, saveNavHistory } from './persistence';
 import { getUnlockedSnapshotManifest, loadSnapshotHistories } from '../adapters/snapshot/browserReader';
 import { historyLruCache } from './historyCache';
+import { resolveBenchmark } from '../config/benchmarks';
 
 export type HistoryLoadFailure = { code: number; reason: string };
 export type HistoryLoadProgress = (done: number, total: number) => void;
@@ -35,7 +36,8 @@ export function hasAuthoritativeMetrics(fund: Fund, latestHistoryDate?: number):
   if (fund.metricsNavAsOf !== undefined && latestHistoryDate !== undefined && fund.metricsNavAsOf < latestHistoryDate) return false;
   const historyPoints = fund.history?.length ?? 0;
   if (historyPoints >= 2) {
-    return ALL_NAV_COMPUTED_METRIC_IDS.every(id => hasMetricOrReason(fund, id));
+    if (!ALL_NAV_COMPUTED_METRIC_IDS.every(id => hasMetricOrReason(fund, id))) return false;
+    if (resolveBenchmark(fund).ok && !hasMetricOrReason(fund, 'beta')) return false;
   }
   return true;
 }
@@ -207,13 +209,14 @@ export async function loadSelectedHistories(
   }
 
   const preserveMetrics = options.preserveExistingMetrics ?? true;
-  const loadedFunds = codes.flatMap(code => {
+  const rawLoadedFunds = codes.flatMap(code => {
     const base = fundsByCode.get(code)!;
     const loaded = historyByCode.get(code);
-    return loaded?.history.length ? [ensureFundMetricsComputed({ ...base, ...loaded, history: loaded.history, historyStatus: 'ok' as const, historyLastError: undefined, historyNextRetryAt: undefined }, options.riskWindow, options.riskFreeRate)] : [];
+    return loaded?.history.length ? [{ ...base, ...loaded, history: loaded.history, historyStatus: 'ok' as const, historyLastError: undefined, historyNextRetryAt: undefined }] : [];
   });
+  const loadedFunds = rawLoadedFunds.map(fund => ensureFundMetricsComputed(fund, options.riskWindow, options.riskFreeRate));
   const fundsNeedingCompute = preserveMetrics
-    ? loadedFunds.filter(fund => !hasAuthoritativeMetrics(fundsByCode.get(fund.code)!, fund.history.at(-1)?.date))
+    ? rawLoadedFunds.filter(fund => !hasAuthoritativeMetrics(fund, fund.history.at(-1)?.date)).map(fund => ensureFundMetricsComputed(fund, options.riskWindow, options.riskFreeRate))
     : loadedFunds;
 
   if (!fundsNeedingCompute.length) {

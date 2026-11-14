@@ -11,8 +11,14 @@ const fund=(code:number,cagr=10):Fund=>({code,isinGrowth:null,isinReinvestment:n
 const series=(multiplier:number):NavPoint[]=>{let nav=100;return Array.from({length:500},(_,index)=>{if(index)nav*=1+(.0003+(index%7)*.00004)*multiplier;return {date:20_000+index,nav};});};
 
 describe('relative and disclosure engines',()=>{
-  it('fails closed when a category has no verified proxy instead of selecting an equity fallback',()=>{
-    const resolution=resolveBenchmark(fund(1));
+  it('resolves verified production benchmark proxies and fails closed when a proxy is unresolved',()=>{
+    const verified=resolveBenchmark(fund(1));
+    expect(verified.ok).toBe(true);
+    if(verified.ok)expect(verified.benchmark.id).toBe('nifty500_proxy');
+
+    const unresolvedConfig=validateBenchmarkConfig({schema_version:1,taxonomy_version:3,max_series_age_days:10,benchmarks:[{id:'nifty500_proxy',display_name:'Nifty 500 TRI (Proxy)',asset_class:'equity',kind:'proxy',status:'unresolved',provider:'mfapi',scheme_code:null,verification:null}],category_map:[{asset_class:'equity',sub_category:'Flexi Cap',benchmark_id:'nifty500_proxy',fit:'broad_approx'}],overrides:[]});
+    expect(unresolvedConfig.ok).toBe(true);
+    const resolution=resolveBenchmark(fund(1),unresolvedConfig.ok?unresolvedConfig.config:null);
     expect(resolution.ok).toBe(false);
     if(!resolution.ok)expect(resolution.reason).toMatchObject({code:'NO_BENCHMARK',cause:'UNRESOLVED_PROXY'});
   });
@@ -57,10 +63,11 @@ describe('relative and disclosure engines',()=>{
     const metrics=evaluated.metrics;
     expect(metrics.beta).toBeCloseTo(2,4);
     expect(metrics.tracking_error).toBeGreaterThan(0);
+    expect(metrics.benchmark_outperformance_ratio).toBe(100);
   });
   it('returns an explicit minimum-overlap reason below 200 aligned returns',()=>{
     const fundHistory=series(1);const benchmarkHistory=series(1).slice(-200);const resolution:BenchmarkResolution={ok:true,fit:'category_standard',benchmark:{id:'test',display_name:'Test benchmark',asset_class:'equity',kind:'proxy',status:'verified',provider:'mfapi',scheme_code:1,verification:{verified_at:'2026-10-13',scheme_name:'Test',isin:null,first_nav_date:'2025-12-01',last_nav_date:'2026-10-13',return_basis:'TRI',checks:['test fixture']}}};
-    const result=evaluateBenchmarkRegression({fund:{...fund(1),history:fundHistory,nav:fundHistory.at(-1)!.nav,navDate:fundHistory.at(-1)!.date},benchmarkHistory,benchmarkAsOf:20_499,benchmarkReturnBasis:'TRI',riskWindow:1,riskFreeRate:6.5,maxSeriesAgeDays:10,fit:'category_standard'},resolution);
+    const result=evaluateBenchmarkRegression({fund:{...fund(1),history:fundHistory,nav:fundHistory.at(-1)!.nav,navDate:historyAsOf(benchmarkHistory)},benchmarkHistory,benchmarkAsOf:20_499,benchmarkReturnBasis:'TRI',riskWindow:1,riskFreeRate:6.5,maxSeriesAgeDays:10,fit:'category_standard'},resolution);
     expect(result.metrics.beta).toBeNull();
     expect(result.reasonDetails.beta).toMatchObject({code:'INSUFFICIENT_HISTORY',cause:'OVERLAP_BELOW_MIN',required:200,actual:199});
   });
@@ -79,7 +86,10 @@ describe('relative and disclosure engines',()=>{
     expect(imported.metricAsOf?.aum_cr).toBe(20_000);
     const heuristic=applySebiHoldingHeuristics(fund(2));
     expect(heuristic.metrics.equity_holding_pct).toBe(65);
+    expect(heuristic.metrics.pe_ratio).toBe(25.2);
+    expect(heuristic.metrics.category_pe_ratio).toBe(25.2);
     expect(heuristic.metricProvenance?.equity_holding_pct).toBe('SEBI_HEURISTIC');
     expect(heuristic.metricReasons?.cash_holding_pct).toBe('SOURCE_MISSING');
   });
 });
+const historyAsOf=(pts:NavPoint[])=>pts.at(-1)!.date;

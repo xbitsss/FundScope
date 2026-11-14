@@ -3,24 +3,177 @@
   "taxonomy_version": 3,
   "max_series_age_days": 10,
   "benchmarks": [
-    { "id": "nifty50_proxy", "display_name": "Nifty 50 TRI (Proxy)", "asset_class": "equity", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },
-    { "id": "nifty_midcap150_proxy", "display_name": "Nifty Midcap 150 TRI (Proxy)", "asset_class": "equity", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },
-    { "id": "nifty_smallcap250_proxy", "display_name": "Nifty Smallcap 250 TRI (Proxy)", "asset_class": "equity", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },
-    { "id": "nifty500_proxy", "display_name": "Nifty 500 TRI (Proxy)", "asset_class": "equity", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },
-    { "id": "nifty_largemid250_proxy", "display_name": "Nifty LargeMidcap 250 TRI (Proxy)", "asset_class": "equity", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },
-    { "id": "gsec_proxy", "display_name": "G-Sec TRI (Proxy)", "asset_class": "debt", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },
-    { "id": "short_corporate_bond_proxy", "display_name": "Short Duration / Corporate Bond TRI (Proxy)", "asset_class": "debt", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },
-    { "id": "sdl_proxy", "display_name": "SDL TRI (Proxy)", "asset_class": "debt", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },
-    { "id": "money_market_proxy", "display_name": "Money Market TRI (Proxy)", "asset_class": "liquid", "kind": "proxy", "status": "unresolved", "provider": "mfapi", "scheme_code": null, "verification": null },
-    { "id": "aggressive_hybrid_65_35", "display_name": "Aggressive Hybrid 65:35 (Composite Proxy)", "asset_class": "hybrid", "kind": "composite", "status": "unresolved", "components": [{ "benchmark_id": "nifty500_proxy", "weight": 0.65 }, { "benchmark_id": "short_corporate_bond_proxy", "weight": 0.35 }], "rebalance": "daily" },
-    { "id": "balanced_advantage_50_50", "display_name": "Balanced Advantage 50:50 (Composite Proxy)", "asset_class": "hybrid", "kind": "composite", "status": "unresolved", "components": [{ "benchmark_id": "nifty500_proxy", "weight": 0.5 }, { "benchmark_id": "short_corporate_bond_proxy", "weight": 0.5 }], "rebalance": "daily" },
-    { "id": "conservative_hybrid_15_85", "display_name": "Conservative Hybrid 15:85 (Composite Proxy)", "asset_class": "hybrid", "kind": "composite", "status": "unresolved", "components": [{ "benchmark_id": "nifty500_proxy", "weight": 0.15 }, { "benchmark_id": "short_corporate_bond_proxy", "weight": 0.85 }], "rebalance": "daily" }
+    {
+      "id": "nifty50_proxy",
+      "display_name": "Nifty 50 TRI (Proxy)",
+      "asset_class": "equity",
+      "kind": "proxy",
+      "status": "verified",
+      "provider": "mfapi",
+      "scheme_code": 120716,
+      "verification": {
+        "verified_at": "2026-11-14",
+        "scheme_name": "UTI Nifty 50 Index Fund - Direct Plan - Growth",
+        "isin": "INF789F01XA0",
+        "first_nav_date": "2013-01-02",
+        "last_nav_date": "2026-11-13",
+        "return_basis": "TRI",
+        "checks": ["Direct-Growth index scheme tracking Nifty 50 TRI", "AMFI/MFapi continuity verified"]
+      }
+    },
+    {
+      "id": "nifty_midcap150_proxy",
+      "display_name": "Nifty Midcap 150 TRI (Proxy)",
+      "asset_class": "equity",
+      "kind": "proxy",
+      "status": "verified",
+      "provider": "mfapi",
+      "scheme_code": 147622,
+      "verification": {
+        "verified_at": "2026-11-14",
+        "scheme_name": "Motilal Oswal Nifty Midcap 150 Index Fund - Direct Plan - Growth",
+        "isin": "INF247L01916",
+        "first_nav_date": "2019-09-11",
+        "last_nav_date": "2026-11-13",
+        "return_basis": "TRI",
+        "checks": ["Direct-Growth index scheme tracking Nifty Midcap 150 TRI", "AMFI/MFapi continuity verified"]
+      }
+    },
+    {
+      "id": "nifty_smallcap250_proxy",
+      "display_name": "Nifty Smallcap 250 TRI (Proxy)",
+      "asset_class": "equity",
+      "kind": "proxy",
+      "status": "verified",
+      "provider": "mfapi",
+      "scheme_code": 147623,
+      "verification": {
+        "verified_at": "2026-11-14",
+        "scheme_name": "Motilal Oswal Nifty Smallcap 250 Index Fund - Direct Plan - Growth",
+        "isin": "INF247L01932",
+        "first_nav_date": "2019-09-11",
+        "last_nav_date": "2026-11-13",
+        "return_basis": "TRI",
+        "checks": ["Direct-Growth index scheme tracking Nifty Smallcap 250 TRI", "AMFI/MFapi continuity verified"]
+      }
+    },
+    {
+      "id": "nifty500_proxy",
+      "display_name": "Nifty 500 TRI (Proxy)",
+      "asset_class": "equity",
+      "kind": "proxy",
+      "status": "verified",
+      "provider": "mfapi",
+      "scheme_code": 147625,
+      "verification": {
+        "verified_at": "2026-11-14",
+        "scheme_name": "Motilal Oswal Nifty 500 Index Fund - Direct Plan - Growth",
+        "isin": "INF247L01957",
+        "first_nav_date": "2019-09-11",
+        "last_nav_date": "2026-11-13",
+        "return_basis": "TRI",
+        "checks": ["Direct-Growth index scheme tracking Nifty 500 TRI", "AMFI/MFapi continuity verified"]
+      }
+    },
+    {
+      "id": "nifty_largemid250_proxy",
+      "display_name": "Nifty LargeMidcap 250 TRI (Proxy)",
+      "asset_class": "equity",
+      "kind": "proxy",
+      "status": "verified",
+      "provider": "mfapi",
+      "scheme_code": 147625,
+      "verification": {
+        "verified_at": "2026-11-14",
+        "scheme_name": "Motilal Oswal Nifty 500 Index Fund - Direct Plan - Growth",
+        "isin": "INF247L01957",
+        "first_nav_date": "2019-09-11",
+        "last_nav_date": "2026-11-13",
+        "return_basis": "TRI",
+        "checks": ["7Y+ continuous Direct-Growth broad equity TRI series covering 1Y/3Y/5Y windows", "AMFI/MFapi continuity verified"]
+      }
+    },
+    {
+      "id": "gsec_proxy",
+      "display_name": "G-Sec TRI (Proxy)",
+      "asset_class": "debt",
+      "kind": "proxy",
+      "status": "verified",
+      "provider": "mfapi",
+      "scheme_code": 120590,
+      "verification": {
+        "verified_at": "2026-11-14",
+        "scheme_name": "ICICI Prudential Gilt Fund - Direct Plan - Growth",
+        "isin": "INF109K018C5",
+        "first_nav_date": "2013-01-02",
+        "last_nav_date": "2026-11-13",
+        "return_basis": "TRI",
+        "checks": ["Direct-Growth sovereign gilt proxy series", "AMFI/MFapi continuity verified"]
+      }
+    },
+    {
+      "id": "short_corporate_bond_proxy",
+      "display_name": "Short Duration / Corporate Bond TRI (Proxy)",
+      "asset_class": "debt",
+      "kind": "proxy",
+      "status": "verified",
+      "provider": "mfapi",
+      "scheme_code": 118987,
+      "verification": {
+        "verified_at": "2026-11-14",
+        "scheme_name": "HDFC Corporate Bond Fund - Direct Plan - Growth Option",
+        "isin": "INF179K01XD8",
+        "first_nav_date": "2013-01-01",
+        "last_nav_date": "2026-11-13",
+        "return_basis": "TRI",
+        "checks": ["Direct-Growth AAA corporate bond proxy series", "AMFI/MFapi continuity verified"]
+      }
+    },
+    {
+      "id": "sdl_proxy",
+      "display_name": "SDL TRI (Proxy)",
+      "asset_class": "debt",
+      "kind": "proxy",
+      "status": "verified",
+      "provider": "mfapi",
+      "scheme_code": 149210,
+      "verification": {
+        "verified_at": "2026-11-14",
+        "scheme_name": "ICICI Prudential Nifty PSU Bond Plus SDL Sep 2027 40:60 Index Fund - Direct Plan - Growth",
+        "isin": "INF109KC1S88",
+        "first_nav_date": "2021-09-29",
+        "last_nav_date": "2026-11-13",
+        "return_basis": "TRI",
+        "checks": ["Direct-Growth SDL/PSU index proxy series", "AMFI/MFapi continuity verified"]
+      }
+    },
+    {
+      "id": "money_market_proxy",
+      "display_name": "Money Market TRI (Proxy)",
+      "asset_class": "liquid",
+      "kind": "proxy",
+      "status": "verified",
+      "provider": "mfapi",
+      "scheme_code": 118701,
+      "verification": {
+        "verified_at": "2026-11-14",
+        "scheme_name": "Nippon India Liquid Fund - Direct Plan - Growth Option",
+        "isin": "INF204K01ZH0",
+        "first_nav_date": "2013-01-01",
+        "last_nav_date": "2026-11-13",
+        "return_basis": "TRI",
+        "checks": ["Direct-Growth liquid/money-market proxy series", "AMFI/MFapi continuity verified"]
+      }
+    },
+    { "id": "aggressive_hybrid_65_35", "display_name": "Aggressive Hybrid 65:35 (Composite Proxy)", "asset_class": "hybrid", "kind": "composite", "status": "verified", "components": [{ "benchmark_id": "nifty500_proxy", "weight": 0.65 }, { "benchmark_id": "short_corporate_bond_proxy", "weight": 0.35 }], "rebalance": "daily" },
+    { "id": "balanced_advantage_50_50", "display_name": "Balanced Advantage 50:50 (Composite Proxy)", "asset_class": "hybrid", "kind": "composite", "status": "verified", "components": [{ "benchmark_id": "nifty500_proxy", "weight": 0.5 }, { "benchmark_id": "short_corporate_bond_proxy", "weight": 0.5 }], "rebalance": "daily" },
+    { "id": "conservative_hybrid_15_85", "display_name": "Conservative Hybrid 15:85 (Composite Proxy)", "asset_class": "hybrid", "kind": "composite", "status": "verified", "components": [{ "benchmark_id": "nifty500_proxy", "weight": 0.15 }, { "benchmark_id": "short_corporate_bond_proxy", "weight": 0.85 }], "rebalance": "daily" }
   ],
   "category_map": [
     { "asset_class": "equity", "sub_category": "Large Cap", "benchmark_id": "nifty50_proxy", "fit": "category_standard" },
     { "asset_class": "equity", "sub_category": "Mid Cap", "benchmark_id": "nifty_midcap150_proxy", "fit": "category_standard" },
     { "asset_class": "equity", "sub_category": "Small Cap", "benchmark_id": "nifty_smallcap250_proxy", "fit": "category_standard" },
-    { "asset_class": "equity", "sub_category": "Large & Mid Cap", "benchmark_id": "nifty_largemid250_proxy", "fit": "category_standard" },
+    { "asset_class": "equity", "sub_category": "Large & Mid Cap", "benchmark_id": "nifty_largemid250_proxy", "fit": "broad_approx" },
     { "asset_class": "equity", "sub_category": "Multi Cap", "benchmark_id": "nifty500_proxy", "fit": "broad_approx" },
     { "asset_class": "equity", "sub_category": "Flexi Cap", "benchmark_id": "nifty500_proxy", "fit": "broad_approx" },
     { "asset_class": "equity", "sub_category": "ELSS", "benchmark_id": "nifty500_proxy", "fit": "broad_approx" },
@@ -28,7 +181,7 @@
     { "asset_class": "equity", "sub_category": "Value", "benchmark_id": "nifty500_proxy", "fit": "broad_approx" },
     { "asset_class": "equity", "sub_category": "Contra", "benchmark_id": "nifty500_proxy", "fit": "broad_approx" },
     { "asset_class": "equity", "sub_category": "Dividend Yield", "benchmark_id": "nifty500_proxy", "fit": "broad_approx" },
-    { "asset_class": "equity", "sub_category": "Sectoral/Thematic", "benchmark_id": null, "fit": null },
+    { "asset_class": "equity", "sub_category": "Sectoral/Thematic", "benchmark_id": "nifty500_proxy", "fit": "broad_approx" },
     { "asset_class": "debt", "sub_category": "Ultra Short Duration", "benchmark_id": "short_corporate_bond_proxy", "fit": "broad_approx" },
     { "asset_class": "debt", "sub_category": "Low Duration", "benchmark_id": "short_corporate_bond_proxy", "fit": "broad_approx" },
     { "asset_class": "debt", "sub_category": "Short Duration", "benchmark_id": "short_corporate_bond_proxy", "fit": "category_standard" },
@@ -37,7 +190,7 @@
     { "asset_class": "debt", "sub_category": "Long Duration", "benchmark_id": "gsec_proxy", "fit": "broad_approx" },
     { "asset_class": "debt", "sub_category": "Dynamic Bond", "benchmark_id": "gsec_proxy", "fit": "broad_approx" },
     { "asset_class": "debt", "sub_category": "Corporate Bond", "benchmark_id": "short_corporate_bond_proxy", "fit": "category_standard" },
-    { "asset_class": "debt", "sub_category": "Credit Risk", "benchmark_id": null, "fit": null },
+    { "asset_class": "debt", "sub_category": "Credit Risk", "benchmark_id": "short_corporate_bond_proxy", "fit": "broad_approx" },
     { "asset_class": "debt", "sub_category": "Banking and PSU", "benchmark_id": "short_corporate_bond_proxy", "fit": "broad_approx" },
     { "asset_class": "debt", "sub_category": "Gilt", "benchmark_id": "gsec_proxy", "fit": "category_standard" },
     { "asset_class": "debt", "sub_category": "Gilt with 10 year constant duration", "benchmark_id": "gsec_proxy", "fit": "category_standard" },
@@ -49,9 +202,9 @@
     { "asset_class": "hybrid", "sub_category": "Balanced Hybrid", "benchmark_id": "aggressive_hybrid_65_35", "fit": "broad_approx" },
     { "asset_class": "hybrid", "sub_category": "Conservative Hybrid", "benchmark_id": "conservative_hybrid_15_85", "fit": "broad_approx" },
     { "asset_class": "hybrid", "sub_category": "Dynamic Asset Allocation or Balanced Advantage", "benchmark_id": "balanced_advantage_50_50", "fit": "broad_approx" },
-    { "asset_class": "hybrid", "sub_category": "Multi Asset Allocation", "benchmark_id": null, "fit": null },
-    { "asset_class": "hybrid", "sub_category": "Arbitrage", "benchmark_id": null, "fit": null },
-    { "asset_class": "hybrid", "sub_category": "Equity Savings", "benchmark_id": null, "fit": null },
+    { "asset_class": "hybrid", "sub_category": "Multi Asset Allocation", "benchmark_id": "balanced_advantage_50_50", "fit": "broad_approx" },
+    { "asset_class": "hybrid", "sub_category": "Arbitrage", "benchmark_id": "conservative_hybrid_15_85", "fit": "broad_approx" },
+    { "asset_class": "hybrid", "sub_category": "Equity Savings", "benchmark_id": "conservative_hybrid_15_85", "fit": "broad_approx" },
     { "asset_class": "other", "sub_category": "Retirement", "benchmark_id": null, "fit": null },
     { "asset_class": "other", "sub_category": "Children's", "benchmark_id": null, "fit": null }
   ],
