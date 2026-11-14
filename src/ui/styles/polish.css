@@ -61,15 +61,278 @@ body {
   contain-intrinsic-size: auto 320px;
 }
 
-.app-shell :where(.table-scroll, .filter-panel) {
+.app-shell :where(.table-scroll, .filter-panel, .main-content, .fund-drawer, .checklist-items) {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-shell .main-content::-webkit-scrollbar {
+  display: block;
+  width: 7px;
+  height: 7px;
+}
+
+.app-shell .subpage {
+  overflow-x: visible;
+  overflow-y: visible;
+  padding-bottom: 96px;
+}
+
+.app-shell .topbar {
+  background: color-mix(in srgb, var(--surface) 82%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
 }
 
 .app-shell .fund-table thead th {
-  background: color-mix(in srgb, var(--surface-2) 88%, transparent);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--surface-2) 86%, transparent);
+  backdrop-filter: saturate(180%) blur(14px);
+  -webkit-backdrop-filter: saturate(180%) blur(14px);
+}
+
+.app-shell .compare-tray {
+  background: color-mix(in srgb, var(--surface) 86%, transparent);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+}
+
+/* Quick presets strip (Zerodha Coin / Groww / Tickertape style) */
+.app-shell .quick-presets-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 1px 10px;
+  margin-bottom: 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  flex-shrink: 0;
+}
+
+.app-shell .quick-presets-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.app-shell .quick-preset-pill {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 560;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+}
+
+.app-shell .quick-preset-pill:hover {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.app-shell .quick-preset-pill.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+:root[data-theme='dark'] .app-shell .quick-preset-pill.active {
+  color: #080c13;
+}
+
+/* Semantic metric coloring & NAV column */
+.app-shell td.val-pos,
+.app-shell .mobile-card-metrics b.val-pos {
+  color: var(--positive);
+  font-weight: 560;
+}
+
+.app-shell td.val-neg,
+.app-shell .mobile-card-metrics b.val-neg {
+  color: var(--negative);
+}
+
+.app-shell td.nav-cell {
+  font-weight: 560;
+  color: var(--text);
+}
+
+/* Industry-standard filter card & numeric range presets */
+.app-shell .checklist-filter.is-open,
+.app-shell .numeric-filter:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  box-shadow: 0 4px 14px rgb(16 24 40 / 6%);
+}
+
+.app-shell .checklist-trigger svg.open-chevron {
+  transform: rotate(180deg);
+}
+
+.app-shell .checklist-trigger svg {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.app-shell .numeric-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.app-shell .numeric-preset-chip {
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 550;
+  transition: all var(--dur-fast) var(--ease-out);
+}
+
+.app-shell .numeric-preset-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.app-shell .numeric-preset-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.app-shell .numeric-preset-chip.reset {
+  color: var(--text-muted);
+  border-style: dashed;
+}
+
+/* Screen options dual column + filter picker */
+.app-shell .picker-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px;
+  border-radius: var(--radius-control);
+}
+
+.app-shell .picker-option-row:hover {
+  background: var(--surface-2);
+}
+
+.app-shell .picker-col-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 4px;
+}
+
+.app-shell .picker-col-toggle .custom-check {
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.app-shell .picker-col-toggle .custom-check.is-checked {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: inset 0 0 0 3px var(--surface);
+}
+
+.app-shell .picker-col-toggle span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.app-shell .picker-col-toggle b {
+  font-size: var(--fs-xs);
+  color: var(--text);
+}
+
+.app-shell .picker-col-toggle small {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 190px;
+}
+
+.app-shell .picker-filter-btn {
+  flex-shrink: 0;
+  height: 26px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: var(--fs-xs);
+  font-weight: 560;
+}
+
+.app-shell .picker-filter-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.app-shell .picker-filter-btn.is-active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+/* Advanced filters collapsible section */
+.app-shell .advanced-filters-details > summary {
+  list-style: none;
+  cursor: pointer;
+  margin-bottom: 0;
+  user-select: none;
+}
+
+.app-shell .advanced-filters-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-shell .advanced-filters-details[open] > summary {
+  margin-bottom: 12px;
+}
+
+.app-shell .advanced-filters-details > summary svg {
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+
+.app-shell .advanced-filters-details[open] > summary svg {
+  transform: rotate(180deg);
+}
+
+/* Compact screener header to give table maximum vertical flow */
+.app-shell .screener-heading {
+  padding: 14px 0 10px;
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .app-shell .freshness {
+    max-width: 320px;
+  }
 }
 
 .app-shell .skeleton-data-row {

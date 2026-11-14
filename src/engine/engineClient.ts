@@ -12,6 +12,31 @@ type WorkerReply =
   | { kind: 'error'; id: number; message: string };
 type Pending = { resolve: (value: WorkerReply) => void; reject: (reason: Error) => void };
 
+function sameStringArray(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+function sameMetricValues(a: Fund['metrics'] | undefined, b: Fund['metrics'] | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  if (aKeys.length !== bKeys.length) return false;
+  for (let i = 0; i < aKeys.length; i++) {
+    const key = aKeys[i]!;
+    if (!(key in b)) return false;
+    const va = a[key];
+    const vb = b[key];
+    if (va === vb) continue;
+    if (typeof va === 'number' && typeof vb === 'number' && Number.isNaN(va) && Number.isNaN(vb)) continue;
+    return false;
+  }
+  return true;
+}
+
 /** Ignores detail/history-only replacements so opening a drawer cannot rebuild the full screener index. */
 export function sameScreenerIndexData(previous: Fund[], next: Fund[]): boolean {
   if (previous.length !== next.length) return false;
@@ -21,7 +46,7 @@ export function sameScreenerIndexData(previous: Fund[], next: Fund[]): boolean {
     if (a.code !== b.code || a.name !== b.name || a.amc !== b.amc || a.category !== b.category || a.assetClass !== b.assetClass ||
       a.classRuleId !== b.classRuleId || a.subCategory !== b.subCategory || a.structure !== b.structure || a.plan !== b.plan || a.option !== b.option ||
       a.management !== b.management || a.group !== b.group || a.riskBand !== b.riskBand || a.philosophy !== b.philosophy || a.lifecycle !== b.lifecycle ||
-      a.classStatus !== b.classStatus || a.navDate !== b.navDate || a.speciality !== b.speciality || a.metrics !== b.metrics) return false;
+      a.classStatus !== b.classStatus || a.nav !== b.nav || a.navDate !== b.navDate || !sameStringArray(a.speciality, b.speciality) || !sameMetricValues(a.metrics, b.metrics)) return false;
   }
   return true;
 }

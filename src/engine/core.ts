@@ -60,6 +60,7 @@ export class ScreenerEngine {
   private readonly searchText: string[];
   private readonly names: string[];
   private readonly subCategories: string[];
+  private readonly navs: Float64Array;
   private readonly navDates: Float64Array;
   private readonly sortCache = new Map<string, Uint32Array>();
 
@@ -75,6 +76,7 @@ export class ScreenerEngine {
     this.searchText = new Array(this.size);
     this.names = new Array(this.size);
     this.subCategories = new Array(this.size);
+    this.navs = new Float64Array(this.size);
     this.navDates = new Float64Array(this.size);
     const categoryTree = new Map<string, Map<string, Set<string>>>();
     const metricIds = new Set<string>();
@@ -88,6 +90,7 @@ export class ScreenerEngine {
       const fund = funds[index]!;
       this.names[index] = norm(fund.name);
       this.subCategories[index] = norm(fund.subCategory);
+      this.navs[index] = Number.isFinite(fund.nav) ? fund.nav : Number.NaN;
       this.navDates[index] = Number.isFinite(fund.navDate) ? fund.navDate : Number.NaN;
       const searchFields = [fund.name, fund.amc, fund.subCategory, fund.group, fund.category, fund.option, fund.plan, fund.assetClass, fund.management, ...(fund.speciality ?? [])].filter(Boolean);
       this.searchText[index] = norm(searchFields.join('\u0000'));
@@ -225,7 +228,7 @@ export class ScreenerEngine {
     const cacheKey = `${sort.id}:${sort.desc ? 'desc' : 'asc'}:${scores ? 'score' : ''}`;
     const cached = this.sortCache.get(cacheKey); if (cached) return cached;
     const order = Array.from({ length: this.size }, (_, index) => index);
-    const metric = this.metricColumns.get(sort.id)?.values;
+    const metric = sort.id === 'nav' ? this.navs : sort.id === 'navDate' ? this.navDates : this.metricColumns.get(sort.id)?.values;
     order.sort((left, right) => {
       if (sort.id === 'name' || sort.id === 'category') {
         const a = sort.id === 'name' ? this.names[left]! : this.subCategories[left]!;
