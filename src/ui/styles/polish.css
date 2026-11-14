@@ -399,13 +399,17 @@ body {
 }
 
 .app-shell .fund-drawer {
-  top: 70px;
+  top: 66px;
   right: 12px;
   bottom: 12px;
-  width: min(560px, calc(100vw - 88px));
+  width: min(640px, calc(100vw - 88px));
+  padding: 22px 24px 28px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sheet);
   box-shadow: var(--shadow-lg);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: saturate(180%) blur(24px);
+  -webkit-backdrop-filter: saturate(180%) blur(24px);
   animation: fundscope-drawer-in var(--dur-sheet-in) var(--ease-sheet) both;
   will-change: transform, opacity;
 }
@@ -413,6 +417,308 @@ body {
 .app-shell .fund-drawer.closing {
   animation: fundscope-drawer-out var(--dur-sheet-out) var(--ease-in) both;
   pointer-events: none;
+}
+
+/* Institutional Fund Drawer Tear-Sheet UI */
+.app-shell .fund-drawer .drawer-header h2 {
+  font-size: clamp(18px, 2vw, 22px);
+  line-height: 1.24;
+  letter-spacing: -0.028em;
+  margin: 4px 36px 4px 0;
+}
+
+.app-shell .fund-drawer .drawer-chips {
+  margin-top: 10px;
+  gap: 6px;
+}
+
+.app-shell .fund-drawer .drawer-chips span {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 540;
+  padding: 3px 10px;
+}
+
+.app-shell .drawer-hero-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+  box-shadow: var(--shadow-sm);
+}
+
+.app-shell .drawer-hero-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.app-shell .drawer-hero-metric:not(:first-child) {
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
+}
+
+.app-shell .drawer-hero-metric small {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.app-shell .drawer-hero-metric b {
+  font-size: clamp(16px, 1.8vw, 20px);
+  font-weight: 680;
+  letter-spacing: -0.025em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-shell .drawer-hero-metric b.val-pos,
+.app-shell .stat-tile b.val-pos,
+.app-shell .metric-accordion summary b.val-pos,
+.app-shell .growth-summary-pill b.val-pos {
+  color: var(--positive);
+}
+
+.app-shell .drawer-hero-metric b.val-neg,
+.app-shell .stat-tile b.val-neg,
+.app-shell .metric-accordion summary b.val-neg,
+.app-shell .growth-summary-pill b.val-neg {
+  color: var(--negative);
+}
+
+.app-shell .drawer-hero-metric span {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-shell .fund-drawer .drawer-actions {
+  margin: 0 0 4px;
+}
+
+.app-shell .fund-drawer .drawer-section {
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.app-shell .fund-drawer .stat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.app-shell .fund-drawer .stat-tile {
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+
+.app-shell .fund-drawer .stat-tile:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--surface);
+}
+
+.app-shell .fund-drawer .stat-tile span {
+  font-size: 11px;
+  font-weight: 560;
+  color: var(--text-muted);
+}
+
+.app-shell .fund-drawer .stat-tile b {
+  font-size: 16px;
+  margin-top: 2px;
+}
+
+.app-shell .fund-drawer .stat-tile small,
+.app-shell .fund-drawer .stat-tile small.is-ready {
+  color: var(--text-muted);
+  font-size: 10.5px;
+  line-height: 1.35;
+  margin-top: 4px;
+}
+
+.app-shell .fund-drawer .stat-tile small.is-missing {
+  color: var(--text-muted);
+  opacity: 0.85;
+}
+
+.app-shell .metric-group-block {
+  margin-top: 10px;
+}
+
+.app-shell .metric-group-block:first-of-type {
+  margin-top: 4px;
+}
+
+.app-shell .metric-group-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 6px 2px 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+}
+
+.app-shell .fund-drawer .drawer-nav {
+  grid-template-columns: minmax(0, 1fr);
+  margin: 16px 0 0;
+  padding: 12px 14px;
+}
+
+/* Growth Chart Timeframe & Summary Bar */
+.app-shell .growth-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 4px 0 8px;
+}
+
+.app-shell .growth-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.app-shell .growth-summary-pill strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.app-shell .growth-summary-pill b {
+  font-weight: 650;
+}
+
+.app-shell .growth-range-caption {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shell .growth-range-segment {
+  width: auto;
+  min-width: 176px;
+}
+
+.app-shell .growth-range-segment button {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+/* Compare View & Scatter Layout Polish */
+.app-shell .compare-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.app-shell .compare-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-shell .metric-table td.best-metric-cell {
+  background: color-mix(in srgb, var(--positive) 10%, transparent);
+  font-weight: 650;
+}
+
+.app-shell .scatter-spread-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 560;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shell .scatter-scale-toggle {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 580;
+  white-space: nowrap;
+}
+
+.app-shell .scatter-scale-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.app-shell .scatter-scale-toggle.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Multi-Screen Responsive Layout Refinements */
+@media (max-width: 1024px) {
+  .app-shell .fund-drawer {
+    width: min(560px, calc(100vw - 24px));
+  }
+}
+
+@media (max-width: 639px) {
+  .app-shell .drawer-hero-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .app-shell .drawer-hero-metric:nth-child(3) {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding-left: 0;
+    padding-top: 8px;
+    flex-direction: row;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .app-shell .fund-drawer .stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .app-shell .growth-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-shell .growth-range-segment {
+    width: 100%;
+  }
 }
 
 .app-shell .main-content {

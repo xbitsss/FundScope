@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { formatAxisTitle, formatCompactMetricAxisLabel, formatEpochDay, formatEpochMs, formatMetricAxisLabel, formatSplitValue, labelPlacement, niceTicks, parseSplitValue } from '../../src/domain/scatter/presentation';
 import { parseScatterPreferences } from '../../src/ui/scatter/preferences';
+import { computeAxisDomain } from '../../src/ui/scatter/ScatterChart';
 
 describe('scatter presentation helpers', () => {
   it('formats epoch days and milliseconds explicitly and safely', () => {
@@ -75,5 +76,16 @@ describe('scatter presentation helpers', () => {
     expect(migrated).not.toHaveProperty('zoom');
     expect(migrated).not.toHaveProperty('bestAtTopRight');
     expect(parseScatterPreferences({ x: 'not-a-metric' })?.splitRule).toBe('peer-median');
+  });
+
+  it('scales scatter axis domains proportionally so small variations produce small distances and large variations produce large distances', () => {
+    const cagrMetric = { id: 'cagr_3y', label: '3Y CAGR', unit: '%', group: 'Returns', direction: 'higher', description: '' } as const;
+    const [smallMin, smallMax] = computeAxisDomain([15.0, 15.2], { metric: cagrMetric, peerMin: 10, peerMax: 22, split: 15.1, zoomToSelection: false });
+    const smallNormalizedDistance = (15.2 - 15.0) / (smallMax - smallMin);
+    expect(smallNormalizedDistance).toBeLessThan(0.05);
+
+    const [largeMin, largeMax] = computeAxisDomain([8.0, 24.0], { metric: cagrMetric, peerMin: 10, peerMax: 22, split: 15.1, zoomToSelection: false });
+    const largeNormalizedDistance = (24.0 - 8.0) / (largeMax - largeMin);
+    expect(largeNormalizedDistance).toBeGreaterThan(0.75);
   });
 });

@@ -19,8 +19,16 @@ export type ScatterQueryResult = {
   thresholds: { x: number | null; y: number | null; rule: SplitRule; peerCount: number; peerScope: 'sub-category' | 'asset class' | null; subCategoryPeerCount: number; notice: string | null };
   coverage: Record<string, number>; coverageReasons: Record<string, string>; axisCoverage: { x: Record<string, number>; y: Record<string, number> };
   selectedCount: number; notPlotted: Array<{ code: number; name: string; metricId: string; reason: string; detail?: ReasonDetail }>;
-  dataBounds: { xMin: number | null; xMax: number | null; yMin: number | null; yMax: number | null };
+  dataBounds: { xMin: number | null; xMax: number | null; yMin: number | null; yMax: number | null; peerXMin?: number | null; peerXMax?: number | null; peerYMin?: number | null; peerYMax?: number | null };
 };
+
+function quantileValue(sorted: readonly number[], p: number): number | null {
+  if (!sorted.length) return null;
+  const pos = Math.max(0, Math.min(sorted.length - 1, p * (sorted.length - 1)));
+  const lower = Math.floor(pos);
+  const upper = Math.ceil(pos);
+  return sorted[lower]! + (sorted[upper]! - sorted[lower]!) * (pos - lower);
+}
 
 function finiteMetric(fund: ScatterFund, id: string): number | null {
   const value = fund.metrics?.[id];
@@ -112,9 +120,15 @@ export function computeScatterQuery(funds: readonly ScatterFund[], options: Scat
     names.push(point.fund.name); amcs.push(point.fund.amc); categories.push(point.fund.subCategory); assetClasses.push(point.fund.assetClass);
   });
   const [xMin, xMax] = finiteBounds(xs); const [yMin, yMax] = finiteBounds(ys);
+  const sortedPeerX = peerPairs.map(pair => pair.x).sort((a, b) => a - b);
+  const sortedPeerY = peerPairs.map(pair => pair.y).sort((a, b) => a - b);
+  const peerXMin = sortedPeerX.length >= 4 ? quantileValue(sortedPeerX, 0.05) : null;
+  const peerXMax = sortedPeerX.length >= 4 ? quantileValue(sortedPeerX, 0.95) : null;
+  const peerYMin = sortedPeerY.length >= 4 ? quantileValue(sortedPeerY, 0.05) : null;
+  const peerYMax = sortedPeerY.length >= 4 ? quantileValue(sortedPeerY, 0.95) : null;
   const coverageReasons: Record<string, string> = {};
   for (const [id, reasons] of coverageReasonCounts) coverageReasons[id] = [...reasons].sort((a, b) => b[1] - a[1])[0]![0];
   return { codes, x, y, quadrants, selected, percentileX, percentileY, rankX, rankY, names, amcs, categories, assetClasses,
     thresholds: { x: thresholdX, y: thresholdY, rule, peerCount, peerScope, subCategoryPeerCount: subCategoryPeers.length, notice }, coverage, coverageReasons, axisCoverage,
-    selectedCount: selectedFunds.length, notPlotted, dataBounds: { xMin, xMax, yMin, yMax } };
+    selectedCount: selectedFunds.length, notPlotted, dataBounds: { xMin, xMax, yMin, yMax, peerXMin, peerXMax, peerYMin, peerYMax } };
 }

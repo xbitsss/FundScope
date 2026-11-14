@@ -21,9 +21,56 @@ function symbolPath(shape: number, x: number, y: number, radius = 8): string {
 type Tone = ReturnType<typeof quadrantTone>;
 type ActiveChartLabel = { kind: 'quadrant'; id: QuadrantId } | { kind: 'split'; axis: 'x' | 'y' };
 
-export function ScatterChart({ result, xMetric, yMetric, dirX, dirY, selectedColors, logScale, showLabels, highlighted, dataAsOfLabel, riskWindow, onThresholdChange, onDirectionChange, onInspect }: {
+export function computeAxisDomain(
+  values: readonly number[],
+  options: { metricId: string; unit: MetricDefinition['unit']; peerMin?: number | null; peerMax?: number | null; canLog?: boolean; zoomToSelection?: boolean },
+): readonly [number, number] {
+  if (!values.length) return [0, 1] as const;
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  const rawSpan = max - min;
+  const center = (min + max) / 2;
+  if (options.canLog || options.zoomToSelection) {
+    if (min === max) {
+      const pad = Math.max(Math.abs(min) * 0.08, 0.01);
+      return [min - pad, max + pad] as const;
+    }
+    const pad = rawSpan * 0.08;
+    return [min - pad, max + pad] as const;
+  }
+  const naturalSpan =
+    options.metricId === 'ter_pct' ? Math.max(1.2, Math.abs(center) * 0.6)
+    : options.metricId === 'r_squared' ? 0.5
+    : options.unit === 'ratio' ? Math.max(0.8, Math.abs(center) * 0.45)
+    : options.unit === 'years' ? Math.max(4, Math.abs(center) * 0.45)
+    : options.unit === '₹ Cr' ? Math.max(2000, Math.abs(center) * 0.55)
+    : options.unit === '%' ? Math.max(6, Math.abs(center) * 0.4)
+    : Math.max(1, Math.abs(center) * 0.4);
+  const hasPeers =
+    typeof options.peerMin === 'number' &&
+    Number.isFinite(options.peerMin) &&
+    typeof options.peerMax === 'number' &&
+    Number.isFinite(options.peerMax) &&
+    options.peerMax > options.peerMin;
+  const peerSpan = hasPeers ? options.peerMax! - options.peerMin! : 0;
+  const targetSpan = Math.max(
+    rawSpan,
+    hasPeers ? Math.min(Math.max(peerSpan, naturalSpan * 0.65), naturalSpan * 2.2) : naturalSpan,
+  );
+  let domainMin = Math.min(min, center - targetSpan / 2);
+  let domainMax = Math.max(max, center + targetSpan / 2);
+  if (domainMax === domainMin) {
+    const fallbackPad = Math.max(Math.abs(domainMin) * 0.08, 0.01);
+    domainMin -= fallbackPad;
+    domainMax += fallbackPad;
+  }
+  const pad = (domainMax - domainMin) * 0.08;
+  return [domainMin - pad, domainMax + pad] as const;
+}
+
+export function ScatterChart({ result, xMetric, yMetric, dirX, dirY, selectedColors, logScale, showLabels, zoomToSelection = false, highlighted, dataAsOfLabel, riskWindow, onThresholdChange, onDirectionChange, onInspect }: {
   result: ScatterQueryResult; xMetric: MetricDefinition; yMetric: MetricDefinition; dirX: MetricDirection; dirY: MetricDirection;
-  selectedColors: Record<number, string>; logScale: boolean; showLabels: boolean; highlighted: QuadrantId | null;
+  selectedColors: Record<number, string>; logScale: boolean; showLabels: boolean; zoomToSelection?: boolean; highlighted: QuadrantId | null;
   onInspect: (code: number) => void; onThresholdChange: (axis: 'x' | 'y', value: number) => void; onDirectionChange: (axis: 'x' | 'y', direction: MetricDirection) => void;
   dataAsOfLabel: string; riskWindow: 1 | 3 | 5;
 }) {
@@ -31,7 +78,7 @@ export function ScatterChart({ result, xMetric, yMetric, dirX, dirY, selectedCol
   const [width, setWidth] = useState(720); const [height, setHeight] = useState(405); const [compactLabels, setCompactLabels] = useState(false); const [tooltipCode, setTooltipCode] = useState<number | null>(null); const [dragged, setDragged] = useState<{ axis: 'x' | 'y'; value: number } | null>(null); const [activeChartLabel, setActiveChartLabel] = useState<ActiveChartLabel | null>(null);
   useEffect(() => {
     const node = host.current; if (!node) return;
-    const observer = new ResizeObserver(entries => { const next = entries[0]?.contentRect; if (!next) return; const narrow = next.width < 640; setWidth(Math.max(280, Math.round(next.width))); setHeight(Math.max(300, Math.round(next.width * (narrow ? .75 : .5625)))); setCompactLabels(next.width < 360); });
+    const observer = new ResizeObserver(entries => { const next = entries[0]?.contentRect; if (!next) return; const narrow = next.width < 640; setWidth(Math.max(280, Math.round(next.width))); setHeight(Math.min(460, Math.max(290, Math.round(next.width * (narrow ? .74 : .52))))); setCompactLabels(next.width < 400); });
     observer.observe(node); return () => observer.disconnect();
   }, []);
   useEffect(() => { setActiveChartLabel(null); }, [result, xMetric.id, yMetric.id, riskWindow]);
@@ -45,20 +92,29 @@ export function ScatterChart({ result, xMetric, yMetric, dirX, dirY, selectedCol
     const xValues = Array.from(result.x, value => canLog ? Math.log10(value) : value); const yValues = Array.from(result.y, value => canLog ? Math.log10(value) : value);
     if (result.thresholds.x !== null && (!canLog || result.thresholds.x > 0)) xValues.push(canLog ? Math.log10(result.thresholds.x) : result.thresholds.x);
     if (result.thresholds.y !== null && (!canLog || result.thresholds.y > 0)) yValues.push(canLog ? Math.log10(result.thresholds.y) : result.thresholds.y);
-    const range = (values: number[]) => {
-      if (!values.length) return [0, 1] as const;
-      let min = Math.min(...values); let max = Math.max(...values);
-      if (min === max) { const pad = Math.max(Math.abs(min) * .08, .01); min -= pad; max += pad; }
-      const pad = (max - min) * .08; return [min - pad, max + pad] as const;
-    };
-    const [xmin, xmax] = range(xValues); const [ymin, ymax] = range(yValues);
+    const [xmin, xmax] = computeAxisDomain(xValues, {
+      metricId: xMetric.id,
+      unit: xMetric.unit,
+      peerMin: result.dataBounds?.peerXMin,
+      peerMax: result.dataBounds?.peerXMax,
+      canLog,
+      zoomToSelection,
+    });
+    const [ymin, ymax] = computeAxisDomain(yValues, {
+      metricId: yMetric.id,
+      unit: yMetric.unit,
+      peerMin: result.dataBounds?.peerYMin,
+      peerMax: result.dataBounds?.peerYMax,
+      canLog,
+      zoomToSelection,
+    });
     const px = (value: number) => bounds.left + ((project(value) - xmin) / (xmax - xmin)) * (bounds.right - bounds.left);
     const py = (value: number) => bounds.bottom - ((project(value) - ymin) / (ymax - ymin)) * (bounds.bottom - bounds.top);
     const positions = Array.from(result.codes, (_, index) => ({ x: px(result.x[index]!), y: py(result.y[index]!), label: shortFundName(result.names[index]!) }));
     const xTickValues = canLog ? niceTicks(xmin, xmax).map(unproject) : niceTicks(xmin, xmax);
     const yTickValues = canLog ? niceTicks(ymin, ymax).map(unproject) : niceTicks(ymin, ymax);
     return { bounds, xmin, xmax, ymin, ymax, px, py, positions, xTicks: xTickValues, yTicks: yTickValues, labels: labelPlacement(positions, bounds) };
-  }, [result, width, height, canLog]);
+  }, [result, width, height, canLog, xMetric.id, xMetric.unit, yMetric.id, yMetric.unit, zoomToSelection]);
 
   const dark = document.documentElement.dataset.theme === 'dark';
   const ink = dark ? '#e4eaf2' : '#263445'; const muted = dark ? '#a5b2c2' : '#617187'; const grid = dark ? '#354354' : '#d7dfe8';
