@@ -331,11 +331,29 @@ export async function loadSelectedHistories(
   const loadedByCode = new Map(loadedFunds.map(fund => [fund.code, computedByCode.get(fund.code) ?? fund]));
   const merged = sourceFunds.map(fund => loadedByCode.get(fund.code) ?? fund);
   const withPeers = await computePeerMetricsInWorker(merged);
-  const toPersist = options.hostedWeb ? [...loadedByCode.values()] : withPeers;
+  const withPeersByCode = new Map(withPeers.map(fund => [fund.code, fund]));
+  const finalFunds = preserveMetrics
+    ? sourceFunds.map(base => {
+      if (!loadedByCode.has(base.code)) return base;
+      const peerComputed = withPeersByCode.get(base.code) ?? loadedByCode.get(base.code)!;
+      const savedScore = base.metrics?.composite_score;
+      const savedHash = base.metrics?.composite_score_model_hash;
+      if (typeof savedScore === 'number' && Number.isFinite(savedScore)) {
+        const lockedMetrics = { ...peerComputed.metrics, composite_score: savedScore, ...(savedHash !== undefined ? { composite_score_model_hash: savedHash } : {}) };
+        const lockedReasons = { ...peerComputed.metricReasons };
+        delete lockedReasons.composite_score;
+        return { ...peerComputed, metrics: lockedMetrics, metricReasons: lockedReasons };
+      }
+      return peerComputed;
+    })
+    : withPeers;
+  const toPersist = preserveMetrics
+    ? finalFunds.filter(fund => loadedByCode.has(fund.code))
+    : (options.hostedWeb ? [...loadedByCode.values()] : finalFunds);
   if (toPersist.length) {
     try { await saveFunds(toPersist); }
     catch { /* Keep successfully loaded histories available in memory if local storage is unavailable. */ }
   }
   options.onProgress?.(codes.length, codes.length);
-  return { funds: withPeers, loadedCodes: [...historyByCode.keys()], failedCodes: [...failures].map(([code, reason]) => ({ code, reason })) };
+  return { funds: finalFunds, loadedCodes: [...historyByCode.keys()], failedCodes: [...failures].map(([code, reason]) => ({ code, reason })) };
 }

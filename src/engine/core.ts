@@ -1,7 +1,7 @@
 import type { Fund } from '../domain/types';
 import { arrayFacets, fixedValues, ordered, type ArrayFacet, type FacetOption, type ScreenerFilters, type ScreenerFacet } from '../domain/screener/filters';
 import { normalizeFilterText } from '../domain/search/normalize';
-import type { ScoreFactor } from '../domain/scoring/engine';
+import { rankFunds, SCORE_METRIC_ID, SCORE_MODEL_HASH_METRIC_ID, scoreFactorsSignature, type ScoreFactor } from '../domain/scoring/engine';
 import { computeScatterQuery, type ScatterQueryOptions, type ScatterQueryResult } from '../domain/scatter/scatterQuery';
 
 export interface EngineSort { id: string; desc: boolean }
@@ -63,6 +63,7 @@ export class ScreenerEngine {
   private readonly navs: Float64Array;
   private readonly navDates: Float64Array;
   private readonly sortCache = new Map<string, Uint32Array>();
+  private readonly scoreCache = new Map<number, Float32Array>();
 
   constructor(funds: Fund[], onProfile?: (phase: string, milliseconds: number) => void) {
     this.funds = funds;
@@ -187,8 +188,9 @@ export class ScreenerEngine {
       }
       facets[facet] = { values: column.values, counts };
     }
-    const scores = scoreFactors.length ? this.computeScores(resultMask, scoreFactors) : undefined;
-    const order = this.getSortOrder(sort, scores);
+    const scoreSig = scoreFactors.length ? scoreFactorsSignature(scoreFactors, 'subcategory') : 0;
+    const scores = scoreFactors.length ? this.computeScores(scoreFactors, scoreSig) : undefined;
+    const order = this.getSortOrder(sort, scores, scoreSig);
     const indices = new Uint32Array(total);
     let cursor = 0; for (const index of order) if (readBit(resultMask, index)) indices[cursor++] = index;
     return { total, indices, facets, funnel, ...(scores ? { scores } : {}) };
@@ -224,44 +226,64 @@ export class ScreenerEngine {
     }
     return mask;
   }
-  private getSortOrder(sort: EngineSort, scores?: Float32Array): Uint32Array {
-    const cacheKey = `${sort.id}:${sort.desc ? 'desc' : 'asc'}:${scores ? 'score' : ''}`;
+  private getSortOrder(sort: EngineSort, scores?: Float32Array, scoreSig = 0): Uint32Array {
+    const cacheKey = `${sort.id}:${sort.desc ? 'desc' : 'asc'}:${sort.id === 'score' ? scoreSig : ''}`;
     const cached = this.sortCache.get(cacheKey); if (cached) return cached;
     const order = Array.from({ length: this.size }, (_, index) => index);
-    const metric = sort.id === 'nav' ? this.navs : sort.id === 'navDate' ? this.navDates : this.metricColumns.get(sort.id)?.values;
+    const savedScores = this.metricColumns.get(SCORE_METRIC_ID)?.values;
+    const metric = sort.id === 'nav' ? this.navs : sort.id === 'navDate' ? this.navDates : sort.id === 'score' ? savedScores : this.metricColumns.get(sort.id)?.values;
     order.sort((left, right) => {
       if (sort.id === 'name' || sort.id === 'category') {
         const a = sort.id === 'name' ? this.names[left]! : this.subCategories[left]!;
         const b = sort.id === 'name' ? this.names[right]! : this.subCategories[right]!;
         const compare = a.localeCompare(b); return (sort.desc ? -compare : compare) || left - right;
       }
-      const a = sort.id === 'score' ? scores?.[left] : metric?.[left];
-      const b = sort.id === 'score' ? scores?.[right] : metric?.[right];
+      const a = sort.id === 'score' && scores ? scores[left] : metric?.[left];
+      const b = sort.id === 'score' && scores ? scores[right] : metric?.[right];
       const aMissing = a === undefined || !Number.isFinite(a); const bMissing = b === undefined || !Number.isFinite(b);
       if (aMissing || bMissing) return aMissing === bMissing ? left - right : aMissing ? 1 : -1;
       return (a! - b!) * (sort.desc ? -1 : 1) || left - right;
     });
     const result = Uint32Array.from(order); this.sortCache.set(cacheKey, result); return result;
   }
-  private computeScores(mask: Uint32Array, factors: ScoreFactor[]): Float32Array {
+  private computeScores(factors: ScoreFactor[], sig: number): Float32Array {
+    const cached = this.scoreCache.get(sig);
+    if (cached) return cached;
     const scores = new Float32Array(this.size).fill(Number.NaN);
     const used = factors.reduce((total, factor) => total + Math.max(0, factor.weight), 0);
     if (!used) return scores;
-    let count = 0; for (const word of mask) count += popcount32(word);
-    const weighted = new Float64Array(this.size);
-    for (const factor of factors) {
-      if (factor.weight <= 0) continue;
-      const metric = this.metricColumns.get(factor.id)?.values;
-      const available: number[] = [];
-      if (metric) for (let index = 0; index < this.size; index++) if (readBit(mask, index) && Number.isFinite(metric[index])) available.push(index);
-      available.sort((a, b) => (metric![b]! - metric![a]!) * (factor.direction === 'higher' ? 1 : -1) || a - b);
-      for (let rank = 0; rank < available.length; rank++) {
-        const percentile = available.length <= 1 ? 100 : (available.length - 1 - rank) / (available.length - 1) * 100;
-        const fundIndex = available[rank]!;
-        weighted[fundIndex] = weighted[fundIndex]! + percentile * factor.weight;
+
+    const savedScoreCol = this.metricColumns.get(SCORE_METRIC_ID)?.values;
+    const savedHashCol = this.metricColumns.get(SCORE_MODEL_HASH_METRIC_ID)?.values;
+    if (savedScoreCol) {
+      let hasMatchingSaved = false;
+      for (let i = 0; i < this.size; i++) {
+        if (Number.isFinite(savedScoreCol[i])) {
+          const hashVal = savedHashCol?.[i];
+          if (hashVal === undefined || !Number.isFinite(hashVal) || Math.round(hashVal) === sig) {
+            hasMatchingSaved = true;
+          }
+          break;
+        }
+      }
+      if (hasMatchingSaved) {
+        for (let i = 0; i < this.size; i++) {
+          const val = savedScoreCol[i]!;
+          if (Number.isFinite(val)) scores[i] = val;
+        }
+        this.scoreCache.set(sig, scores);
+        return scores;
       }
     }
-    if (count) for (let index = 0; index < this.size; index++) if (readBit(mask, index)) scores[index] = weighted[index]! / used;
+
+    const ranked = rankFunds(this.funds, factors, { peerGroup: 'subcategory', robustMagnitude: true });
+    for (let i = 0; i < this.size; i++) {
+      const s = ranked[i]?.score;
+      if (s !== null && s !== undefined && Number.isFinite(s)) {
+        scores[i] = s;
+      }
+    }
+    this.scoreCache.set(sig, scores);
     return scores;
   }
 }
