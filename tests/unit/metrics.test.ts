@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { computeMetricBundle, computeMetrics } from '../../src/domain/metrics/compute';
+import { metricRegistry } from '../../src/domain/metrics/registry';
+import { explainMetricForFund } from '../../src/domain/metrics/insights';
+import type { Fund } from '../../src/domain/types';
 
 describe('NAV metric calculations',()=>{
   it('keeps long-window CAGR unavailable when the history is too short',()=>{
@@ -32,5 +35,19 @@ describe('NAV metric calculations',()=>{
     const history=Array.from({length:1_500},(_,index)=>({date:10_000+index,nav:100*Math.pow(1.1,index/365.2425)}));
     const bundle=computeMetricBundle({history,nav:history.at(-1)!.nav,navDate:history.at(-1)!.date});
     expect(bundle.metrics.rolling_3y_average_return).toBeCloseTo(10,3);
+  });
+  it('generates fund-contextual explanations for every metric in the registry',()=>{
+    const sampleFund:Fund={
+      code:120401,isinGrowth:null,isinReinvestment:null,name:'Example Flexi Cap Fund',amc:'Example AMC',
+      category:'Equity Scheme - Flexi Cap Fund',assetClass:'equity',classRuleId:'equity_flexi_cap',
+      taxonomyVersion:3,subCategory:'Flexi Cap',structure:'open',plan:'Direct',option:'Growth',
+      nav:42.5,navDate:20_500,history:[],
+      metrics:{cagr_3y:16.4,return_vs_subcategory_3y:2.1,sharpe:1.35,sortino:1.85,std_dev:12.2,category_std_dev:13.8,beta:0.88,max_drawdown:-14.5,ter_pct:0.55,aum_cr:8400},
+    };
+    for(const metric of metricRegistry){
+      const insight=explainMetricForFund(sampleFund,metric,3);
+      expect(insight.whatItTellsYou.length).toBeGreaterThan(20);
+      expect(insight.inContext.length).toBeGreaterThan(20);
+    }
   });
 });

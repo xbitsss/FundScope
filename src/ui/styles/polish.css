@@ -1099,3 +1099,31 @@ body {
 .app-shell .backend-activity-pill svg {
   color: var(--accent);
 }
+
+.app-shell .metric-accordion .metric-insight-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 10px 10px;
+  margin-top: 4px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 85%, var(--bg));
+  border-left: 2px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.app-shell .metric-accordion .metric-insight-body p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.48;
+  color: var(--text-muted);
+}
+
+.app-shell .metric-accordion .metric-insight-body p b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.app-shell .metric-accordion .metric-insight-context {
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
+}
